@@ -27,12 +27,15 @@ local type = type
 local abs = math.abs
 local min = math.min
 local max = math.max
+local sqrt = math.sqrt
 local assert = assert
 
 local SPACE_KEY_CONST = 2^25
 
 local splash = {}
 splash.__index = splash
+
+-- Helper functions
 
 local function assert_aabb(x, y, w, h)
     if w <= 0 or h <= 0 then
@@ -79,12 +82,14 @@ local function remove_item_from_cell(self, item, cx, cy)
     end
 end
 
-local function aabb_overlap(x1, y1, w1, h1, x2, y2, w2, h2)
+-- Collision Testing
+
+local function aabb_aabb_intersect(x1, y1, w1, h1, x2, y2, w2, h2)
     return x1 < x2 + w2 and x2 < x1 + w1 and
            y1 < y2 + h2 and y2 < y1 + h1
 end
 
-local function aabb_seg_intersect(x1, y1, x2, y2, x, y, w, h)
+local function seg_aabb_intersect(x1, y1, x2, y2, x, y, w, h)
     local idx, idy = 1 / (x2 - x1), 1 / (y2 - y1)
     local rx, ry = x - x1, y - y1
     local tx1, tx2, ty1, ty2
@@ -100,6 +105,71 @@ local function aabb_seg_intersect(x1, y1, x2, y2, x, y, w, h)
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
     return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
+end
+
+local function circle_circle_intersect(x1, y1, r1, x2, y2, r2)
+    local dx, dy = x2 - x1, y2 - y1
+    local d2 = dx * dx + dy * dy
+    local r2 = (r1 + r2)^2
+    if d2 <= r2 then
+        local inv_pen = 1 / sqrt(r2 - d2)
+        return true, inv_pen * dx, inv_pen * dy
+    end
+    return false
+end
+
+local function circle_seg_intersect(xc, yc, r, x1, y1, x2, y2)
+
+end
+
+local function aabb_circle_intersect(x, y, w, h, xc, xy, r)
+
+end
+
+local function seg_seg_intersect(x1, y1, x2, y2, x3, y3, x4, y4)
+
+end
+
+-- Grid functions
+
+local function grid_rect(x, y, w, h, cs, f, ...)
+    assert_aabb(x, y, w, h)
+    local x1, y1, x2, y2 = to_cell_box(cs, x, y, w, h)
+    for gx = x1, x2 do
+        for gy = y1, y2 do
+            local ret = f(gx, gy, ...)
+            if ret then return ret end
+        end
+    end
+end
+
+local function grid_segment(x1, y1, x2, y2, cs, f, ...)
+    local sx, sy = x2 >= x1 and 1 or -1, y2 >= y1 and 1 or -1
+    local x, y = to_cell(cs, x1, y1)
+    local xf, yf = to_cell(cs, x2, y2)
+    if x == xf and y == yf then
+        return f(x, y, ...)
+    end
+    local dx, dy = x2 - x1, y2 - y1
+    local dtx, dty = abs(cs / dx), abs(cs / dy)
+    local tx = abs((floor(x1 / cs) * cs + (sx > 0 and cs or 0) - x1) / dx)
+    local ty = abs((floor(y1 / cs) * cs + (sy > 0 and cs or 0) - y1) / dy)
+    while x ~= xf or y ~= yf do
+        local ret, xt, yt, t = f(x, y, ...)
+        if ret then return ret, xt, yt, t end
+        if tx > ty then
+            ty = ty + dty
+            y = y + sy
+        else
+            tx = tx + dtx
+            x = x + sx
+        end
+    end
+    return f(xf, yf, ...)
+end
+
+local function grid_circle(x, y, r, cs, f, ...)
+
 end
 
 -- Splash functions
@@ -206,44 +276,6 @@ function splash:countCells()
     return count
 end
 
--- Grid functions
-
-local function grid_rect(x, y, w, h, cs, f, ...)
-    assert_aabb(x, y, w, h)
-    local x1, y1, x2, y2 = to_cell_box(cs, x, y, w, h)
-    for gx = x1, x2 do
-        for gy = y1, y2 do
-            local ret = f(gx, gy, ...)
-            if ret then return ret end
-        end
-    end
-end
-
-local function grid_segment(x1, y1, x2, y2, cs, f, ...)
-    local sx, sy = x2 >= x1 and 1 or -1, y2 >= y1 and 1 or -1
-    local x, y = to_cell(cs, x1, y1)
-    local xf, yf = to_cell(cs, x2, y2)
-    if x == xf and y == yf then
-        return f(x, y, ...)
-    end
-    local dx, dy = x2 - x1, y2 - y1
-    local dtx, dty = abs(cs / dx), abs(cs / dy)
-    local tx = abs((floor(x1 / cs) * cs + (sx > 0 and cs or 0) - x1) / dx)
-    local ty = abs((floor(y1 / cs) * cs + (sy > 0 and cs or 0) - y1) / dy)
-    while x ~= xf or y ~= yf do
-        local ret, xt, yt, t = f(x, y, ...)
-        if ret then return ret, xt, yt, t end
-        if tx > ty then
-            ty = ty + dty
-            y = y + sy
-        else
-            tx = tx + dtx
-            x = x + sx
-        end
-    end
-    return f(xf, yf, ...)
-end
-
 -- Ray casting
 
 local function ray_trace_helper(cx, cy, self, x1, y1, x2, y2)
@@ -253,7 +285,7 @@ local function ray_trace_helper(cx, cy, self, x1, y1, x2, y2)
     local ret, t = nil, 1
     for i = 1, #list do
         local item = list[i]
-        local c, t1 = aabb_seg_intersect(x1, y1, x2, y2, unpack(info[item]))
+        local c, t1 = seg_aabb_intersect(x1, y1, x2, y2, unpack(info[item]))
         if c and t1 <= t then
             ret, t = item, t1
         end
@@ -277,7 +309,7 @@ local function map_rect_helper(cx, cy, self, seen, f, x, y, w, h)
     for i = 1, #list do
         local item = list[i]
         if not seen[item] and
-            aabb_overlap(x, y, w, h, unpack(info[item])) then
+            aabb_aabb_intersect(x, y, w, h, unpack(info[item])) then
             f(item)
         end
         seen[item] = true
@@ -291,7 +323,7 @@ local function map_segment_helper(cx, cy, self, seen, f, x1, y1, x2, y2)
     for i = 1, #list do
         local item = list[i]
         if (not seen[item]) then
-            local c, t1, t2 = aabb_seg_intersect(x1, y1, x2, y2,
+            local c, t1, t2 = seg_aabb_intersect(x1, y1, x2, y2,
                 unpack(info[item]))
             if c then
                 f(item, t1, t2)
