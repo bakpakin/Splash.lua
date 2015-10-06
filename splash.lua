@@ -89,22 +89,8 @@ local function aabb_aabb_intersect(x1, y1, w1, h1, x2, y2, w2, h2)
            y1 < y2 + h2 and y2 < y1 + h1
 end
 
-local function seg_aabb_intersect(x1, y1, x2, y2, x, y, w, h)
-    local idx, idy = 1 / (x2 - x1), 1 / (y2 - y1)
-    local rx, ry = x - x1, y - y1
-    local tx1, tx2, ty1, ty2
-    if idx > 0 then
-        tx1, tx2 = rx * idx, (rx + w) * idx
-    else
-        tx2, tx1 = rx * idx, (rx + w) * idx
-    end
-    if idy > 0 then
-        ty1, ty2 = ry * idy, (ry + h) * idy
-    else
-        ty2, ty1 = ry * idy, (ry + h) * idy
-    end
-    local t1, t2 = max(tx1, ty1), min(tx2, ty2)
-    return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
+local function aabb_circle_intersect(x, y, w, h, xc, xy, r)
+
 end
 
 local function circle_circle_intersect(x1, y1, r1, x2, y2, r2)
@@ -122,12 +108,26 @@ local function circle_seg_intersect(xc, yc, r, x1, y1, x2, y2)
 
 end
 
-local function aabb_circle_intersect(x, y, w, h, xc, xy, r)
+local function seg_seg_intersect(x1, y1, x2, y2, x3, y3, x4, y4)
 
 end
 
-local function seg_seg_intersect(x1, y1, x2, y2, x3, y3, x4, y4)
-
+local function seg_aabb_intersect(x1, y1, x2, y2, x, y, w, h)
+    local idx, idy = 1 / (x2 - x1), 1 / (y2 - y1)
+    local rx, ry = x - x1, y - y1
+    local tx1, tx2, ty1, ty2
+    if idx > 0 then
+        tx1, tx2 = rx * idx, (rx + w) * idx
+    else
+        tx2, tx1 = rx * idx, (rx + w) * idx
+    end
+    if idy > 0 then
+        ty1, ty2 = ry * idy, (ry + h) * idy
+    else
+        ty2, ty1 = ry * idy, (ry + h) * idy
+    end
+    local t1, t2 = max(tx1, ty1), min(tx2, ty2)
+    return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
 end
 
 -- Grid functions
@@ -391,8 +391,13 @@ function splash:mapAll(f)
 end
 
 -- Generate the query and iter versions of Map functions
-local query_map_fn = function(n) ret[#ret + 1] = n end
-local query_box_map_fn = function(...) ret[#ret + 1] = {...} end
+local all_filter = function() return true end
+local query_map_fn = function(filter, n)
+    if filter(n) then ret[#ret + 1] = n end
+end
+local query_box_map_fn = function(filter, ...)
+    if filter(...) then ret[#ret + 1] = {...} end
+end
 local function generate_query_iter(name, box_query)
     local mapName = "map" .. name
     local queryName = "query" .. name
@@ -400,7 +405,8 @@ local function generate_query_iter(name, box_query)
     local query_fn = box_query and query_box_map_fn or query_map_fn
     splash[queryName] = function(self, ...)
         local ret = {}
-        self[mapName](self, query_map_fn, ...)
+        local filter = select(select("#", ...), ...)
+        self[mapName](self, query_map_fn, filter, ...)
         return ret
     end
     -- Little hack to avoid packing and unpacking varargs - a, b, c, d
