@@ -11,11 +11,11 @@ local spinners = {}
 function love.load()
     love.window.setMode(900, 600, {resizable = true})
     for i = 1, 300 do
-        world:add({}, math.random(-800, 800), math.random(-800, 800), 25, 25)
+        world:add({}, math.random(-800, 800), math.random(-800, 800), 50, 50)
     end
     for i = 1, 45 do
         local spinner = {x = math.random(-800, 800), y = math.random(-800, 800)}
-        spinners[i] = world:add(spinner, spinner.x + 100, spinner.y, 50, 50)
+        spinners[i] = world:add(spinner, spinner.x + 100, spinner.y, 100, 100)
     end
 end
 
