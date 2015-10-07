@@ -1,4 +1,4 @@
-local splash = require "...splash"
+local splash = require ".splash"
 
 local world = splash(128)
 local camx, camy = 0, 0
@@ -10,13 +10,16 @@ local spinners = {}
 
 function love.load()
     love.window.setMode(900, 600, {resizable = true})
-    for i = 1, 300 do
-        world:add({}, math.random(-800, 800), math.random(-800, 800), 50, 50)
+    for i = 1, 150 do
+        world:add({}, splash.aabb(math.random(-800, 800), math.random(-800, 800), 50, 50))
     end
-    for i = 1, 45 do
-        local spinner = {x = math.random(-800, 800), y = math.random(-800, 800)}
-        spinners[i] = world:add(spinner, spinner.x + 100, spinner.y, 100, 100)
+    for i = 1, 150 do
+        world:add({}, splash.circle(math.random(-800, 800), math.random(-800, 800), 25))
     end
+    -- for i = 1, 45 do
+    --     local spinner = {x = math.random(-800, 800), y = math.random(-800, 800)}
+    --     spinners[i] = world:add(spinner, splash.aabb(spinner.x + 100, spinner.y, 100, 100))
+    -- end
 end
 
 function love.update(dt)
@@ -35,8 +38,18 @@ function love.update(dt)
     mx, my = mx + camx, my + camy
 
     for _, spinner in ipairs(spinners) do
-        world:update(spinner, spinner.x + 100 * math.cos(time), spinner.y + 100 * math.sin(time))
+        world:update(spinner, splash.aabb(spinner.x + 100 * math.cos(time), spinner.y + 100 * math.sin(time), 100, 100))
     end
+end
+
+local shape_draws = {
+    circle = function(s, m) love.graphics.circle(m, unpack(s)) end,
+    seg = function(s, m) love.graphics.line(unpack(s)) end,
+    aabb = function(s, m) love.graphics.rectangle(m, unpack(s)) end
+}
+local function draw_shape(shape, mode)
+    mode = mode or "line"
+    shape_draws[shape.type](shape, mode)
 end
 
 function love.draw()
@@ -44,16 +57,16 @@ function love.draw()
     love.graphics.setColor(255, 0, 0)
     local item, ex, ey = world:castRay(mx, my, mx + math.cos(dir) * 2000, my + math.sin(dir) * 2000)
     love.graphics.line(mx, my, ex, ey)
-    if item then love.graphics.rectangle("fill", world:aabb(item)) end
+    if item then draw_shape(world:shape(item), "fill") end
     love.graphics.setColor(80, 80, 80, 255)
     for cx, cy in world:iterPopulatedCells() do
-        local x, y, w, h = world:cellAabb(cx, cy)
+        local x, y, w, h = unpack(world:cellAabb(cx, cy))
         love.graphics.rectangle("line", x, y, w, h)
         love.graphics.printf(world:cellThingCount(cx, cy), x + 5, y + 5, 300, "left")
     end
     love.graphics.setColor(255, 255, 255)
     for thing in world:iterAll() do
-        love.graphics.rectangle("line", world:aabb(thing))
+        draw_shape(world:shape(thing))
     end
     love.graphics.origin()
     love.graphics.setColor(0, 0, 0, 230)

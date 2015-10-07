@@ -29,6 +29,9 @@ local min = math.min
 local max = math.max
 local sqrt = math.sqrt
 local assert = assert
+local select = select
+local wrap = coroutine.wrap
+local yield = coroutine.yield
 
 local SPACE_KEY_CONST = 2^25
 
@@ -60,43 +63,40 @@ local function to_cell_box(cs, x, y, w, h)
     return x1, y1, x2, y2
 end
 
-local function add_item_to_cell(self, item, cx, cy)
-    local key = SPACE_KEY_CONST * cx + cy
-    local l = self[key]
-    if not l then l = {x = cx, y = cy}; self[key] = l end
-    l[#l + 1] = item
+-- Intersection Testing
+
+local function aabb_aabb_intersect(a, b)
+    return a[1] < b[1] + b[3] and b[1] < a[1] + a[3] and
+           a[2] < b[2] + b[4] and b[2] < a[2] + a[4]
 end
 
-local function remove_item_from_cell(self, item, cx, cy)
-    local key = SPACE_KEY_CONST * cx + cy
-    local l = self[key]
-    if not l then return end
-    for i = 1, #l do
-        if l[i] == item then
-            l[#l], l[i] = nil, l[#l]
-            if #l == 0 then
-                self[key] = nil
-            end
-            break
+local function aabb_circle_intersect(aabb, circle)
+    local x, y, w, h = aabb[1], aabb[2], aabb[3], aabb[4]
+    local xc, yc, r = circle[1], circle[2], circle[3]
+    if xc < x - r then return false end
+    if xc > x + w + r then return false end
+    if yc < y - r then return false end
+    if yc > y + h + r then return false end
+    if xc < x then
+        if yc < y then
+            return r ^ 2 > (yc - y) ^ 2 + (xc - x) ^ 2
+        elseif yc > y + h then
+            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x) ^ 2
+        end
+    elseif xc > x + w then
+        if yc < y then
+            return r ^ 2 > (yc - y) ^ 2 + (xc - x - w) ^ 2
+        elseif yc > y + h then
+            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x - w) ^ 2
         end
     end
+    return true
 end
 
--- Collision Testing
-
-local function aabb_aabb_intersect(x1, y1, w1, h1, x2, y2, w2, h2)
-    return x1 < x2 + w2 and x2 < x1 + w1 and
-           y1 < y2 + h2 and y2 < y1 + h1
-end
-
-local function aabb_circle_intersect(x, y, w, h, xc, xy, r)
-
-end
-
-local function circle_circle_intersect(x1, y1, r1, x2, y2, r2)
-    local dx, dy = x2 - x1, y2 - y1
+local function circle_circle_intersect(c1, c2)
+    local dx, dy = c2[1] - c1[1], c2[2] - c1[2]
     local d2 = dx * dx + dy * dy
-    local r2 = (r1 + r2)^2
+    local r2 = (c1[3] + c2[3])^2
     if d2 <= r2 then
         local inv_pen = 1 / sqrt(r2 - d2)
         return true, inv_pen * dx, inv_pen * dy
@@ -104,15 +104,38 @@ local function circle_circle_intersect(x1, y1, r1, x2, y2, r2)
     return false
 end
 
-local function circle_seg_intersect(xc, yc, r, x1, y1, x2, y2)
-
+-- Segment intersections should also return one or two times of intersection
+-- from 0 to 1 for ray-casting
+local function seg_circle_intersect(seg, circle)
+    local px, py = seg[3] - seg[1], seg[4] - seg[2]
+    local cx, cy = circle[1] - seg[1], circle[2] - seg[2]
+    local pcx, pcy = px - cx, py - cy
+    local pdotp = px * px + py * py
+    local r2 = circle[3]^2
+    local d2 = (px * cy - cx * py)^2 / pdotp
+    local dt2 = (r2 - d2)
+    if dt2 < 0 then return false end
+    local dt = sqrt(dt2 / pdotp)
+    local tbase = (px * cx + py * cy) / pdotp
+    return tbase - dt <= 1 and tbase + dt >= 0, tbase - dt, tbase + dt
 end
 
-local function seg_seg_intersect(x1, y1, x2, y2, x3, y3, x4, y4)
-
+local function seg_seg_intersect(s1, s2)
+    local dx1, dy1 = s1[3] - s1[1], s1[4] - s1[2]
+    local dx2, dy2 = s2[3] - s2[1], s2[4] - s2[2]
+    local dx3, dy3 = s1[1] - s2[1], s1[2] - s2[2]
+    local d = dx1*dy2 - dy1*dx2
+    if d == 0 then return false end -- collinear
+    local t1 = (dx2 * dy3 - dy2 * dx3) / d
+    if t1 < 0 or t1 > 1 then return false end
+    local t2 = (dx1 * dy3 - dy1 * dx3) / d
+    if t2 < 0 or t2 > 1 then return false end
+    return true, t1
 end
 
-local function seg_aabb_intersect(x1, y1, x2, y2, x, y, w, h)
+local function seg_aabb_intersect(seg, aabb)
+    local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
+    local x, y, w, h = aabb[1], aabb[2], aabb[3], aabb[4]
     local idx, idy = 1 / (x2 - x1), 1 / (y2 - y1)
     local rx, ry = x - x1, y - y1
     local tx1, tx2, ty1, ty2
@@ -130,33 +153,48 @@ local function seg_aabb_intersect(x1, y1, x2, y2, x, y, w, h)
     return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
 end
 
+local intersections = {
+    circle = {
+        circle = circle_circle_intersect,
+    },
+    aabb = {
+        aabb = aabb_aabb_intersect,
+        circle = aabb_circle_intersect
+    },
+    seg = {
+        seg = seg_seg_intersect,
+        aabb = seg_aabb_intersect,
+        circle = seg_circle_intersect
+    }
+}
+
 -- Grid functions
 
-local function grid_rect(x, y, w, h, cs, f, ...)
-    assert_aabb(x, y, w, h)
-    local x1, y1, x2, y2 = to_cell_box(cs, x, y, w, h)
+local function grid_aabb(aabb, cs, f, ...)
+    local x1, y1, x2, y2 = to_cell_box(cs, aabb[1], aabb[2], aabb[3], aabb[4])
     for gx = x1, x2 do
         for gy = y1, y2 do
-            local ret = f(gx, gy, ...)
-            if ret then return ret end
+            local a = f(gx, gy, ...)
+            if a then return a end
         end
     end
 end
 
-local function grid_segment(x1, y1, x2, y2, cs, f, ...)
+local function grid_segment(seg, cs, f, ...)
+    local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
     local sx, sy = x2 >= x1 and 1 or -1, y2 >= y1 and 1 or -1
     local x, y = to_cell(cs, x1, y1)
     local xf, yf = to_cell(cs, x2, y2)
     if x == xf and y == yf then
-        return f(x, y, ...)
+        local a = f(x, y, ...)
+        if a then return a end
     end
     local dx, dy = x2 - x1, y2 - y1
     local dtx, dty = abs(cs / dx), abs(cs / dy)
     local tx = abs((floor(x1 / cs) * cs + (sx > 0 and cs or 0) - x1) / dx)
     local ty = abs((floor(y1 / cs) * cs + (sy > 0 and cs or 0) - y1) / dy)
     while x ~= xf or y ~= yf do
-        local ret, xt, yt, t = f(x, y, ...)
-        if ret then return ret, xt, yt, t end
+        f(x, y, ...)
         if tx > ty then
             ty = ty + dty
             y = y + sy
@@ -168,7 +206,57 @@ local function grid_segment(x1, y1, x2, y2, cs, f, ...)
     return f(xf, yf, ...)
 end
 
-local function grid_circle(x, y, r, cs, f, ...)
+-- For now, just use aabb grid code. Large circles will be in extra cells.
+local function grid_circle(circle, cs, f, ...)
+    local x, y, r = circle[1], circle[2], circle[3]
+    local x1, y1, x2, y2 = to_cell_box(cs, x - r, y - r, 2 * r, 2 * r)
+    for cy = y1, y2 do
+        for cx = x1, x2 do
+            local a = f(cx, cy, ...)
+            if a then return a end
+        end
+    end
+end
+
+local grids = {
+    circle = grid_circle,
+    aabb = grid_aabb,
+    seg = grid_segment
+}
+
+-- Shapes
+
+local function make_circle(x, y, r)
+    return {type = "circle", x, y, r}
+end
+
+local function make_aabb(x, y, w, h)
+    return {type = "aabb", x, y, w, h}
+end
+
+local function make_seg(x1, y1, x2, y2)
+    return {type = "seg", x1, y1, x2, y2}
+end
+
+local function shape_grid(shape, cs, f, ...)
+    return grids[shape.type](shape, cs, f, ...)
+end
+
+-- Static collisions
+-- Returns boolean
+local function shape_intersect(s1, s2)
+    local f = intersections[s1.type][s2.type]
+    if f then
+        return f(s1, s2)
+    else
+        return intersections[s2.type][s1.type](s2, s1)
+    end
+end
+
+-- Swept collisions
+-- Returns nil or manifest if collision
+-- format of manifest: x, y, t, nx, ny, px, py
+local function shape_collide(s1, s2, xto, yto)
 
 end
 
@@ -183,73 +271,61 @@ local function splash_new(cellSize)
     }, splash)
 end
 
-function splash:add(item, x, y, w, h)
-    assert_aabb(x, y, w, h)
-    local info = {x, y, w or 0, h or 0}
-    assert(not self.info[item], "Item is already in world.")
-    self.count = self.count + 1
-    self.info[item] = info
-    local cs = self.cellSize
-    local cxstart, cystart, cxend, cyend = to_cell_box(cs, x, y, w, h)
-    for cx = cxstart, cxend do
-        for cy = cystart, cyend do
-            add_item_to_cell(self, item, cx, cy)
+local function add_item_to_cell(cx, cy, self, item)
+    local key = SPACE_KEY_CONST * cx + cy
+    local l = self[key]
+    if not l then l = {x = cx, y = cy}; self[key] = l end
+    l[#l + 1] = item
+end
+
+local function remove_item_from_cell(cx, cy, self, item)
+    local key = SPACE_KEY_CONST * cx + cy
+    local l = self[key]
+    if not l then return end
+    for i = 1, #l do
+        if l[i] == item then
+            l[#l], l[i] = nil, l[#l]
+            if #l == 0 then
+                self[key] = nil
+            end
+            break
         end
     end
-    return item
+end
+
+function splash:add(item, shape)
+    assert(not self.info[item], "Item is already in world.")
+    self.count = self.count + 1
+    self.info[item] = shape
+    shape_grid(shape, self.cellSize, add_item_to_cell, self, item)
+    return item, shape
 end
 
 function splash:remove(item)
-    local info = self.info[item]
-    local x, y, w, h = unpack(info)
-    assert(self.info[item], "Item is not in world.")
+    local shape = self.info[item]
+    assert(shape, "Item is not in world.")
     self.count = self.count - 1
     self.info[item] = nil
-    local cs = self.cellSize
-    local cxstart, cystart, cxend, cyend = to_cell_box(cs, x, y, w, h)
-    for cx = cxstart, cxend do
-        for cy = cystart, cyend do
-            remove_item_from_cell(self, item, cx, cy)
-        end
-    end
-    return item
+    shape_grid(shape, self.cellSize, remove_item_from_cell, self, item)
+    return item, shape
 end
 
-function splash:update(item, x, y, w, h)
-    local info = self.info[item]
-    assert(info, "Item is not in world.")
-    local oldx, oldy, oldw, oldh = unpack(info)
-    w, h = w or oldw, h or oldh
-    assert_aabb(x, y, w, h)
-    if x ~= oldx or y ~= oldy or w ~= oldw or h ~= oldh then
-        local cs = self.cellSize
-        local ox1, oy1, ox2, oy2 = to_cell_box(cs, oldx, oldy, oldw, oldh)
-        local cx1, cy1, cx2, cy2 = to_cell_box(cs, x, y, w, h)
-        for cx = ox1, ox2 do
-            local xpass = cx > cx2 or cx < cx1
-            for cy = oy1, oy2 do
-                if xpass or cy > cy2 or cy < cy1 then
-                    remove_item_from_cell(self, item, cx, cy)
-                end
-            end
-        end
-        for cx = cx1, cx2 do
-            local xpass = cx > ox2 or cx < ox1
-            for cy = cy1, cy2 do
-                if xpass or cy > oy2 or cy < oy1 then
-                    add_item_to_cell(self, item, cx, cy)
-                end
-            end
-        end
-        info[1], info[2], info[3], info[4] = x, y, w, h
-    end
-    return item, unpack(info)
+function splash:update(item, shape)
+    local oldshape = self.info[item]
+    assert(oldshape, "Item is not in world.")
+    -- Maybe optimize this later to avoid updating cells that haven't moved.
+    -- In practice for small objects this probably works fine. It's certainly
+    -- shorter than the more optimized version would be.
+    shape_grid(oldshape, self.cellSize, remove_item_from_cell, self, item)
+    shape_grid(shape, self.cellSize, add_item_to_cell, self, item)
+    self.info[item] = shape
+    return item, shape
 end
 
 -- Utility functions
 
-function splash:aabb(item)
-    return unpack(self.info[item])
+function splash:shape(item)
+    return self.info[item]
 end
 
 function splash:toCell(x, y)
@@ -259,7 +335,7 @@ end
 
 function splash:cellAabb(cx, cy)
     local cs = self.cellSize
-    return cx * cs, cy * cs, cs, cs
+    return make_aabb(cx * cs, cy * cs, cs, cs)
 end
 
 function splash:cellThingCount(cx, cy)
@@ -278,53 +354,42 @@ end
 
 -- Ray casting
 
-local function ray_trace_helper(cx, cy, self, x1, y1, x2, y2)
+local function ray_trace_helper(cx, cy, self, seg, ref)
     local list = self[SPACE_KEY_CONST * cx + cy]
     local info = self.info
-    if not list then return nil, x2, y2, 1 end
-    local ret, t = nil, 1
+    if not list then return false end
     for i = 1, #list do
         local item = list[i]
-        local c, t1 = seg_aabb_intersect(x1, y1, x2, y2, unpack(info[item]))
-        if c and t1 <= t then
-            ret, t = item, t1
+        -- Segment intersections should always return a time of intersection
+        local c, t1 = shape_intersect(seg, info[item])
+        if c and t1 <= ref[2] then
+            ref[1], ref[2] = item, t1
         end
     end
-    t = max(t, 0)
-    local it = 1 - t
-    return ret, x1 * it + x2 * t, y1 * it + y2 * t, t
+    local tcx, tcy = to_cell(self.cellSize,
+                             (1 - ref[2]) * seg[1] + ref[2] * seg[3],
+                             (1 - ref[2]) * seg[2] + ref[2] * seg[4])
+    if cx == tcx and cy == tcy then return true end
 end
 
 function splash:castRay(x1, y1, x2, y2)
-    return grid_segment(x1, y1, x2, y2, self.cellSize,
-        ray_trace_helper, self, x1, y1, x2, y2)
+    local ref = {false, 1}
+    local seg = make_seg(x1, y1, x2, y2)
+    grid_segment(seg, self.cellSize, ray_trace_helper, self, seg, ref)
+    local t = max(0, ref[2])
+    return ref[1], (1 - t) * x1 + t * x2, (1 - t) * y1 + t * y2, t
 end
 
 -- Map helper functions
 
-local function map_rect_helper(cx, cy, self, seen, f, x, y, w, h)
+local function map_shape_helper(cx, cy, self, seen, f, shape)
     local list = self[SPACE_KEY_CONST * cx + cy]
-    local info = self.info
     if not list then return end
+    local info = self.info
     for i = 1, #list do
         local item = list[i]
-        if not seen[item] and
-            aabb_aabb_intersect(x, y, w, h, unpack(info[item])) then
-            f(item)
-        end
-        seen[item] = true
-    end
-end
-
-local function map_segment_helper(cx, cy, self, seen, f, x1, y1, x2, y2)
-    local list = self[SPACE_KEY_CONST * cx + cy]
-    local info = self.info
-    if not list then return end
-    for i = 1, #list do
-        local item = list[i]
-        if (not seen[item]) then
-            local c, t1, t2 = seg_aabb_intersect(x1, y1, x2, y2,
-                unpack(info[item]))
+        if not seen[item] then
+            local c, t1, t2 = shape_intersect(shape, info[item])
             if c then
                 f(item, t1, t2)
             end
@@ -343,30 +408,10 @@ function splash:mapPopulatedCells(f)
     end
 end
 
-function splash:mapRect(f, x, y, w, h)
+function splash:mapShape(f, shape)
     local seen = {}
-    return grid_rect(x, y, w, h, self.cellSize,
-        map_rect_helper, self, seen, f, x, y, w, h)
-end
-
-function splash:mapSegment(f, x1, y1, x2, y2)
-    local seen = {}
-    return grid_segment(x1, y1, x2, y2, self.cellSize,
-        map_segment_helper, self, seen, f, x1, y1, x2, y2)
-end
-
-function splash:mapPoint(f, x, y)
-    local cx, cy = to_cell(self.cellSize, x, y)
-    local list = self[SPACE_KEY_CONST * cx + cy]
-    if not list then return end
-    local info = self.info
-    for i = 1, #list do
-        local item = list[i]
-        local x1, y1, w1, h1 = unpack(info[item])
-        if x >= x1 and y >= y1 and x <= x1 + w1 and y <= y1 + h1 then
-            f(item)
-        end
-    end
+    return shape_grid(shape, self.cellSize,
+        map_shape_helper, self, seen, f, shape)
 end
 
 function splash:mapCell(f, cx, cy)
@@ -390,40 +435,38 @@ function splash:mapAll(f)
     end
 end
 
--- Generate the query and iter versions of Map functions
-local all_filter = function() return true end
-local query_map_fn = function(filter, n)
+-- Generate the iter versions of Map functions
+local default_filter = function() return true end
+local query_fn = function(ret, filter, n)
     if filter(n) then ret[#ret + 1] = n end
 end
-local query_box_map_fn = function(filter, ...)
+local box_query_fn = function(ret, filter, ...)
     if filter(...) then ret[#ret + 1] = {...} end
 end
-local function generate_query_iter(name, box_query)
+local function generate_query_iter(name, box_query, filter_index)
     local mapName = "map" .. name
-    local queryName = "query" .. name
     local iterName = "iter" .. name
-    local query_fn = box_query and query_box_map_fn or query_map_fn
+    local queryName = "query" .. name
     splash[queryName] = function(self, ...)
         local ret = {}
-        local filter = select(select("#", ...), ...)
-        self[mapName](self, query_map_fn, filter, ...)
+        local filter = select(filter_index, ...) or default_filter
+        self[mapName](self, filter, ...)
         return ret
     end
-    -- Little hack to avoid packing and unpacking varargs - a, b, c, d
-    splash[iterName] = function(self, a, b, c, d)
-        return coroutine.wrap(function()
-            self[mapName](self, function(...)
-                coroutine.yield(...)
-            end, a, b, c, d)
-        end)
+    splash[iterName] = function(self, a, b)
+        return wrap(function() self[mapName](self, yield, a, b) end)
     end
 end
 
 generate_query_iter("Cell")
-generate_query_iter("Point")
-generate_query_iter("Rect")
-generate_query_iter("Segment")
+generate_query_iter("Shape")
 generate_query_iter("All")
-generate_query_iter("PopulatedCells", true)
+generate_query_iter("PopulatedCells")
 
-return splash_new
+-- Make the module
+return setmetatable({
+    new = splash_new,
+    circle = make_circle,
+    aabb = make_aabb,
+    seg = make_seg
+}, { __call = function(_, ...) return splash_new(...) end })
