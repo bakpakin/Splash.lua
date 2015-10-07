@@ -271,19 +271,19 @@ local function splash_new(cellSize)
     }, splash)
 end
 
-local function add_item_to_cell(cx, cy, self, item)
+local function add_thing_to_cell(cx, cy, self, thing)
     local key = SPACE_KEY_CONST * cx + cy
     local l = self[key]
     if not l then l = {x = cx, y = cy}; self[key] = l end
-    l[#l + 1] = item
+    l[#l + 1] = thing
 end
 
-local function remove_item_from_cell(cx, cy, self, item)
+local function remove_thing_from_cell(cx, cy, self, thing)
     local key = SPACE_KEY_CONST * cx + cy
     local l = self[key]
     if not l then return end
     for i = 1, #l do
-        if l[i] == item then
+        if l[i] == thing then
             l[#l], l[i] = nil, l[#l]
             if #l == 0 then
                 self[key] = nil
@@ -293,39 +293,39 @@ local function remove_item_from_cell(cx, cy, self, item)
     end
 end
 
-function splash:add(item, shape)
-    assert(not self.info[item], "Item is already in world.")
+function splash:add(thing, shape)
+    assert(not self.info[thing], "Thing is already in world.")
     self.count = self.count + 1
-    self.info[item] = shape
-    shape_grid(shape, self.cellSize, add_item_to_cell, self, item)
-    return item, shape
+    self.info[thing] = shape
+    shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
+    return thing, shape
 end
 
-function splash:remove(item)
-    local shape = self.info[item]
-    assert(shape, "Item is not in world.")
+function splash:remove(thing)
+    local shape = self.info[thing]
+    assert(shape, "Thing is not in world.")
     self.count = self.count - 1
-    self.info[item] = nil
-    shape_grid(shape, self.cellSize, remove_item_from_cell, self, item)
-    return item, shape
+    self.info[thing] = nil
+    shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
+    return thing, shape
 end
 
-function splash:update(item, shape)
-    local oldshape = self.info[item]
-    assert(oldshape, "Item is not in world.")
+function splash:update(thing, shape)
+    local oldshape = self.info[thing]
+    assert(oldshape, "Thing is not in world.")
     -- Maybe optimize this later to avoid updating cells that haven't moved.
     -- In practice for small objects this probably works fine. It's certainly
     -- shorter than the more optimized version would be.
-    shape_grid(oldshape, self.cellSize, remove_item_from_cell, self, item)
-    shape_grid(shape, self.cellSize, add_item_to_cell, self, item)
-    self.info[item] = shape
-    return item, shape
+    shape_grid(oldshape, self.cellSize, remove_thing_from_cell, self, thing)
+    shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
+    self.info[thing] = shape
+    return thing, shape
 end
 
 -- Utility functions
 
-function splash:shape(item)
-    return self.info[item]
+function splash:shape(thing)
+    return self.info[thing]
 end
 
 function splash:toCell(x, y)
@@ -359,11 +359,11 @@ local function ray_trace_helper(cx, cy, self, seg, ref)
     local info = self.info
     if not list then return false end
     for i = 1, #list do
-        local item = list[i]
+        local thing = list[i]
         -- Segment intersections should always return a time of intersection
-        local c, t1 = shape_intersect(seg, info[item])
+        local c, t1 = shape_intersect(seg, info[thing])
         if c and t1 <= ref[2] then
-            ref[1], ref[2] = item, t1
+            ref[1], ref[2] = thing, t1
         end
     end
     local tcx, tcy = to_cell(self.cellSize,
@@ -387,11 +387,11 @@ local function map_shape_helper(cx, cy, self, seen, f, shape)
     if not list then return end
     local info = self.info
     for i = 1, #list do
-        local item = list[i]
-        if not seen[item] then
-            local c, t1, t2 = shape_intersect(shape, info[item])
+        local thing = list[i]
+        if not seen[thing] then
+            local c, t1, t2 = shape_intersect(shape, info[thing])
             if c then
-                f(item, t1, t2)
+                f(thing, t1, t2)
             end
         end
         seen[item] = true
