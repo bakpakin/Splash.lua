@@ -16,10 +16,11 @@ love ./lovedemo
 ```
 
 ## What does this do that bump.lua doesn't?
-Well, nothing yet. The interface is slightly more flexible, and you don't have
-to create a large table when querying a large rectangle.
-I plan to add support for more shapes, especially circles and line segments.
-Full polygonal support is a maybe. Also, one thing I wanted to do with this is
+Shapes are not just limited to rectangles. The interface is slightly more
+flexible, and you don't have to create a large table when querying a large part
+of the world. Currently, AABBs, circles and line segments are supported.
+Full polygonal support is a maybe. Swept collisions and responses might also
+be added int the future. Another thing I wanted to do with this is
 implement some simple verlet physics. Although physics might complicate the API,
 I could make Splash much easier, simpler, and maybe faster than a full physics
 engine. If I do add physics, I probably won't add full polygon support.
@@ -37,30 +38,44 @@ local world = splash(cellSize)
 Creates a new Splash world with a given cellSize. Leave `cellSize` as nil to get
 the default of 128.
 
-### Editing Things in the World
+### Shapes
+Splash associates **Things** in a World with **Shapes**. Currently, there are
+three different types of Shapes: Circles, Segs, and AABBs.
+
+```lua
+local aabb = splash.aabb(x, y, w, h)
+```
+Creates an AABB at `(x, y)` with a width and height of `w` and `h`. AABBs are
+just rectangles that cannot rotate.
+
+```lua
+
+```
+
+### Things
 Currently, all items in Splash are represented by AABBs, or Axis Aligned
 Bounding Boxes. In Splash, these are specified by four numbers, (x, y, w, h).
 (x, y) is the top left most coordinate, and w and h are positive numbers
 representing the width and height of the AABB.
 
 ```lua
-local thing = world:add({}, x, y, w, h)
+local shape = splash.aabb(x, y, w, h)
+local thing = world:add({}, shape)
 ```
-Adds a Lua table to the world in the given bounding box. Returns the first
-parameter for convenience.
+Adds a Thing to the world with the Shape. Returns the Thing and the Shape for
+convenience.
 
 ```lua
-thing = world:remove(thing)
+thing, shape = world:remove(thing)
 ```
-Removes a Lua table from the world. Returns the thing removed for convenience.
+Removes a Thing from the world. Returns the Thing removed and its associated
+Shape for convenience.
 
 ```lua
-local newx, newy, neww, newh
-thing, newx, newy, neww, newh = world:update(thing, x, y, [w, h])
+thing, shape = world:update(thing, shape)
 ```
-Changes the position and optionally the size of an object in the World. w and h
-must be positive if given. Returns the thing for convenience, along with the new
-AABB of the thing.
+Changes the Shape size of an Thing in the World. Returns the thing for
+convenience, along with the new Shape.
 
 ### Checking the World
 
@@ -75,31 +90,25 @@ have a corresponding `map` and `iter` function of a similar name. The `map` and
 #### Mapping
 ```lua
 world:mapAll(f(thing))
-world:mapPopulatedCells(f(cx, cy))
-world:mapRect(f(thing), x, y, w, h)
-world:mapPoint(f(thing), x, y)
+world:mapShape(f(thing), shape)
 world:mapCell(f(thing), cx, cy)
-world:mapSegment(f(thing, t1, t2), x1, y1, x2, y2)
+world:mapPoint(f(thing), x, y)
 ```
 
 #### Querying
 ```lua
-local things = world:queryAll()
-local cellPairs = world:queryPopulatedCells()
-local things = world:queryRect(x, y, w, h)
-local things = world:queryPoint(x, y)
-local things = world:queryCell(cx, cy)
-local things = world:querySegment(x1, y1, x2, y2)
+local things = world:queryAll([filter])
+local things = world:queryShape(shape, [filter])
+local things = world:queryCell(cx, cy, [filter])
+local things = world:queryPoint(x, y, [filter])
 ```
 
 #### Iterating
 ```lua
 for thing in world:iterAll() do ... end
-for cx, cy in world:iterPopulatedCells() do ... end
 for thing in world:iterRect(x, y, w, h) do ... end
-for thing in world:iterPoint(x, y) do ... end
 for thing in world:iterCell(cx, cy) do ... end
-for thing, t1, t2 in world:iterSegment(x1, y1, x2, y2) do ... end
+for thing in world:iterPoint(x, y) do ... end
 ```
 
 Besides these general functions, Splash also has a fast, early exit
@@ -111,21 +120,25 @@ local thing, endx, endy, t1 = world:castRay(x1, y1, x2, y2)
 
 ### Utility Functions
 ```lua
-local x, y, w, h = world:aabb(thing)
+local shape = world:shape(thing)
 ```
-Returns the AABB associated with `thing`.
+Returns the Shape associated with `thing`.
+
+### Debug Functions
+These functions should be used mainly for debugging and inspecting what Splash
+is doing. They deal mostly with how Splash puts objects into cells for fast
+lookup.
 
 ```lua
 local cellx, celly = world:toCell(x, y)
 ```
-Converts a world coordinate to a cell coordinate. This is useful mainly for
-debugging, as cells are really more part of the implementation than the
-interface.
+Converts a world coordinate to a cell coordinate.
 
 ```lua
-local cx, cy, cw, ch = world:cellAabb(cellx, celly)
+local aabb = world:fromCell(cellx, celly)
 ```
-Returns the AABB of a cell. Again, useful mainly for debugging.
+Returns the world coordinates of a cell's most negative corner. Again, useful
+mainly for debugging.
 
 ```lua
 local count = world:cellThingCount(cx, cy)
@@ -143,8 +156,8 @@ splash.lua to your project source folder.
 
 ## Todo
 * Add tests (busted)
-* Add more shapes (circles, line segments, polygons)
 * Add CI (travis)
+* Swept collisions
 * Add optional verlet physics? (A bit of a challenge, but a very good fit with
     static collision checking). Might complicate API
 * Whatever features seem useful

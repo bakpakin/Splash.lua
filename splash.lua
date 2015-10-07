@@ -38,20 +38,21 @@ local SPACE_KEY_CONST = 2^25
 local splash = {}
 splash.__index = splash
 
+-- Shapes
+
+local function make_circle(x, y, r)
+    return {type = "circle", x, y, r}
+end
+
+local function make_aabb(x, y, w, h)
+    return {type = "aabb", x, y, w, h}
+end
+
+local function make_seg(x1, y1, x2, y2)
+    return {type = "seg", x1, y1, x2, y2}
+end
+
 -- Helper functions
-
-local function assert_aabb(x, y, w, h)
-    if w <= 0 or h <= 0 then
-        error "Width and Height of an AABB must be greater than 0."
-    end
-end
-
-local function array_copy(x)
-    local ret = {}
-    if not x then return nil end
-    for i = 1, #x do ret[i] = x[i] end
-    return ret
-end
 
 local function to_cell(cs, x, y)
     return floor(x / cs), floor(y / cs)
@@ -224,26 +225,12 @@ local grids = {
     seg = grid_segment
 }
 
--- Shapes
-
-local function make_circle(x, y, r)
-    return {type = "circle", x, y, r}
-end
-
-local function make_aabb(x, y, w, h)
-    return {type = "aabb", x, y, w, h}
-end
-
-local function make_seg(x1, y1, x2, y2)
-    return {type = "seg", x1, y1, x2, y2}
-end
-
 local function shape_grid(shape, cs, f, ...)
     return grids[shape.type](shape, cs, f, ...)
 end
 
 -- Static collisions
--- Returns boolean
+-- Returns boolean, plus times of collision for segments
 local function shape_intersect(s1, s2)
     local f = intersections[s1.type][s2.type]
     if f then
@@ -333,9 +320,9 @@ function splash:toCell(x, y)
     return floor(x / cs), floor(y / cs)
 end
 
-function splash:cellAabb(cx, cy)
+function splash:fromCell(cx, cy)
     local cs = self.cellSize
-    return make_aabb(cx * cs, cy * cs, cs, cs)
+    return cx * cs, cy * cs
 end
 
 function splash:cellThingCount(cx, cy)
@@ -380,7 +367,7 @@ function splash:castRay(x1, y1, x2, y2)
     return ref[1], (1 - t) * x1 + t * x2, (1 - t) * y1 + t * y2, t
 end
 
--- Map helper functions
+-- Map functions
 
 local function map_shape_helper(cx, cy, self, seen, f, shape)
     local list = self[SPACE_KEY_CONST * cx + cy]
@@ -393,17 +380,7 @@ local function map_shape_helper(cx, cy, self, seen, f, shape)
             if c then
                 f(thing, t1, t2)
             end
-        end
-        seen[item] = true
-    end
-end
-
--- Map functions
-
-function splash:mapPopulatedCells(f)
-    for k, list in pairs(self) do
-        if type(k) == "number" then
-            f(list.x, list.y)
+            seen[thing] = true
         end
     end
 end
@@ -414,6 +391,10 @@ function splash:mapShape(f, shape)
         map_shape_helper, self, seen, f, shape)
 end
 
+function splash:mapPoint(f, x, y)
+    return splash:mapShape(f, make_circle(x, y, 0))
+end
+
 function splash:mapCell(f, cx, cy)
     local list = self[SPACE_KEY_CONST * cx + cy]
     if not list then return end
@@ -421,7 +402,7 @@ function splash:mapCell(f, cx, cy)
 end
 
 function splash:mapAll(f)
-    local seen, ret = {}, {}
+    local seen = {}
     for k, list in pairs(self) do
         if type(k) == "number" then
             for i = 1, #list do
@@ -437,20 +418,18 @@ end
 
 -- Generate the iter versions of Map functions
 local default_filter = function() return true end
-local query_fn = function(ret, filter, n)
-    if filter(n) then ret[#ret + 1] = n end
-end
-local box_query_fn = function(ret, filter, ...)
-    if filter(...) then ret[#ret + 1] = {...} end
-end
-local function generate_query_iter(name, box_query, filter_index)
+local function generate_query_iter(name, filter_index)
     local mapName = "map" .. name
     local iterName = "iter" .. name
     local queryName = "query" .. name
     splash[queryName] = function(self, ...)
         local ret = {}
         local filter = select(filter_index, ...) or default_filter
-        self[mapName](self, filter, ...)
+        for thing in self[iterName](self, ...) do
+            if filter(thing, ...) then
+                ret[#ret + 1] = thing
+            end
+        end
         return ret
     end
     splash[iterName] = function(self, a, b)
@@ -458,10 +437,10 @@ local function generate_query_iter(name, box_query, filter_index)
     end
 end
 
-generate_query_iter("Cell")
-generate_query_iter("Shape")
-generate_query_iter("All")
-generate_query_iter("PopulatedCells")
+generate_query_iter("Shape", 2)
+generate_query_iter("All", 1)
+generate_query_iter("Cell", 3)
+generate_query_iter("Point", 3)
 
 -- Make the module
 return setmetatable({
