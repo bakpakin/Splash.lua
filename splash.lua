@@ -266,7 +266,7 @@ local function splash_new(cellSize)
     return setmetatable({
         cellSize = cellSize,
         count = 0,
-        info = {}
+        shapes = {}
     }, splash)
 end
 
@@ -293,38 +293,38 @@ local function remove_thing_from_cell(cx, cy, self, thing)
 end
 
 function splash:add(thing, shape)
-    assert(not self.info[thing], "Thing is already in world.")
+    assert(not self.shapes[thing], "Thing is already in world.")
     self.count = self.count + 1
-    self.info[thing] = shape
+    self.shapes[thing] = shape
     shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
     return thing, shape
 end
 
 function splash:remove(thing)
-    local shape = self.info[thing]
+    local shape = self.shapes[thing]
     assert(shape, "Thing is not in world.")
     self.count = self.count - 1
-    self.info[thing] = nil
+    self.shapes[thing] = nil
     shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
     return thing, shape
 end
 
 function splash:update(thing, shape)
-    local oldshape = self.info[thing]
+    local oldshape = self.shapes[thing]
     assert(oldshape, "Thing is not in world.")
     -- Maybe optimize this later to avoid updating cells that haven't moved.
     -- In practice for small objects this probably works fine. It's certainly
     -- shorter than the more optimized version would be.
     shape_grid(oldshape, self.cellSize, remove_thing_from_cell, self, thing)
     shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
-    self.info[thing] = shape
+    self.shapes[thing] = shape
     return thing, shape
 end
 
 -- Utility functions
 
 function splash:shape(thing)
-    return self.info[thing]
+    return self.shapes[thing]
 end
 
 function splash:toCell(x, y)
@@ -355,12 +355,12 @@ end
 
 local function ray_trace_helper(cx, cy, self, seg, ref)
     local list = self[SPACE_KEY_CONST * cx + cy]
-    local info = self.info
+    local shapes = self.shapes
     if not list then return false end
     for i = 1, #list do
         local thing = list[i]
         -- Segment intersections should always return a time of intersection
-        local c, t1 = shape_intersect(seg, info[thing])
+        local c, t1 = shape_intersect(seg, shapes[thing])
         if c and t1 <= ref[2] then
             ref[1], ref[2] = thing, t1
         end
@@ -384,11 +384,11 @@ end
 local function map_shape_helper(cx, cy, self, seen, f, shape)
     local list = self[SPACE_KEY_CONST * cx + cy]
     if not list then return end
-    local info = self.info
+    local shapes = self.shapes
     for i = 1, #list do
         local thing = list[i]
         if not seen[thing] then
-            local c, t1, t2 = shape_intersect(shape, info[thing])
+            local c, t1, t2 = shape_intersect(shape, shapes[thing])
             if c then
                 f(thing, t1, t2)
             end
