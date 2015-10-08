@@ -14,11 +14,7 @@ function love.load()
     love.window.setMode(900, 600, {resizable = true})
     for i = 1, 150 do
         world:add({}, splash.aabb(r(), r(), 50, 50))
-    end
-    for i = 1, 150 do
         world:add({}, splash.circle(r(), r(), 25))
-    end
-    for i = 1, 150 do
         local x, y = r(), r()
         local dir = math.random(2*math.pi)
         world:add({}, splash.seg(x, y, x + 300 * math.cos(dir), y + 300 * math.sin(dir)))
@@ -45,7 +41,7 @@ function love.update(dt)
     mx, my = mx + camx, my + camy
 
     for _, spinner in ipairs(spinners) do
-        world:update(spinner, splash.aabb(spinner.x + 100 * math.cos(time), spinner.y + 100 * math.sin(time), 100, 100))
+        world:update(spinner, spinner.x + 100 * math.cos(time), spinner.y + 100 * math.sin(time))
     end
 end
 

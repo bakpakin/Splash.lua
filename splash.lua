@@ -231,18 +231,33 @@ end
 -- Shapes
 
 local shape_mt
+
+local function shape_clone(s)
+    return setmetatable({
+        type = s.type,
+        s[1], s[2], s[3], s[4]
+    }, shape_mt)
+end
+
+local function shape_clone_to(s, d)
+    d[1], d[2], d[3], d[4] = s[1], s[2], s[3], s[4]
+    d.type = s.type
+    return d
+end
+
+local function shape_update(s, x, y, a, b)
+    s[1], s[2], s[3], s[4] = x, y, a or s[3], b or s[4]
+    return s
+end
+
 shape_mt = {
     __index = {
         unpack = unpack,
         intersect = shape_intersect,
         collide = shape_collide,
         pos = function(self) return self[1], self[2] end,
-        clone = function(self)
-            return setmetatable({
-                type = self.type,
-                self[1], self[2], self[3], self[4]
-            }, shape_mt)
-        end
+        update = shape_update,
+        clone = shape_clone
     },
     __call = function(self) return unpack(self) end
 }
@@ -266,7 +281,8 @@ local function splash_new(cellSize)
     return setmetatable({
         cellSize = cellSize,
         count = 0,
-        shapes = {}
+        shapes = {}, -- Internal shapes
+        shapes2 = {} -- Shapes that users can modify
     }, splash)
 end
 
@@ -295,7 +311,9 @@ end
 function splash:add(thing, shape)
     assert(not self.shapes[thing], "Thing is already in world.")
     self.count = self.count + 1
-    self.shapes[thing] = shape
+    local clone = shape_clone(shape)
+    self.shapes[thing] = clone
+    self.shapes2[thing] = shape
     shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
     return thing, shape
 end
@@ -305,11 +323,12 @@ function splash:remove(thing)
     assert(shape, "Thing is not in world.")
     self.count = self.count - 1
     self.shapes[thing] = nil
+    self.shape2[thing] = nil
     shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
     return thing, shape
 end
 
-function splash:update(thing, shape)
+function splash:setShape(thing, shape)
     local oldshape = self.shapes[thing]
     assert(oldshape, "Thing is not in world.")
     -- Maybe optimize this later to avoid updating cells that haven't moved.
@@ -317,14 +336,27 @@ function splash:update(thing, shape)
     -- shorter than the more optimized version would be.
     shape_grid(oldshape, self.cellSize, remove_thing_from_cell, self, thing)
     shape_grid(shape, self.cellSize, add_thing_to_cell, self, thing)
-    self.shapes[thing] = shape
+    shape_clone_to(shape, oldshape)
+    self.shapes2[thing] = shape
     return thing, shape
+end
+
+function splash:update(thing, ...)
+    local modifiedShape = self.shapes2[thing]
+    assert(modifiedShape, "Could not find a Shape.")
+    if ... then shape_update(modifiedShape, ...) end
+    local shape = self.shapes[thing]
+    assert(shape, "Thing is not in world.")
+    shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
+    shape_grid(modifiedShape, self.cellSize, add_thing_to_cell, self, thing)
+    shape_clone_to(shape, modifiedShape)
+    return thing, modifiedShape
 end
 
 -- Utility functions
 
 function splash:shape(thing)
-    return self.shapes[thing]
+    return shape_clone(self.shapes[thing])
 end
 
 function splash:toCell(x, y)
