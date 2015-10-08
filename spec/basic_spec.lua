@@ -1,3 +1,8 @@
+local GLOBALS = {}
+for k, v in pairs(_G) do
+    GLOBALS[k] = v
+end
+
 local splash = require "splash"
 
 describe("Splash", function()
@@ -24,6 +29,10 @@ describe("Splash", function()
         local world = splash(32)
         assert.truthy(world)
         assert.are.equal(world.cellSize, 32)
+    end)
+
+    it("doesn't leak global variables on world creation", function()
+        assert.are.same(_G, GLOBALS)
     end)
 
 end)
