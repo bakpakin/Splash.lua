@@ -50,9 +50,9 @@ function love.update(dt)
 end
 
 local shape_draws = {
-    circle = function(s, m) love.graphics.circle(m, unpack(s)) end,
-    seg = function(s, m) love.graphics.line(unpack(s)) end,
-    aabb = function(s, m) love.graphics.rectangle(m, unpack(s)) end
+    circle = function(s, m) love.graphics.circle(m, s:unpack()) end,
+    seg = function(s, m) love.graphics.line(s:unpack()) end,
+    aabb = function(s, m) love.graphics.rectangle(m, s:unpack()) end
 }
 
 local function draw_shape(shape, mode)

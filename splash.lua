@@ -38,20 +38,6 @@ local SPACE_KEY_CONST = 2^25
 local splash = {}
 splash.__index = splash
 
--- Shapes
-
-local function make_circle(x, y, r)
-    return {type = "circle", x, y, r}
-end
-
-local function make_aabb(x, y, w, h)
-    return {type = "aabb", x, y, w, h}
-end
-
-local function make_seg(x1, y1, x2, y2)
-    return {type = "seg", x1, y1, x2, y2}
-end
-
 -- Helper functions
 
 local function to_cell(cs, x, y)
@@ -246,6 +232,29 @@ end
 -- format of manifest: x, y, t, nx, ny, px, py
 local function shape_collide(s1, s2, xto, yto)
 
+end
+
+-- Shapes
+
+local shape_mt = {
+    __index = {
+        unpack = unpack,
+        intersect = shape_intersect,
+        collide = shape_collide
+    },
+    __call = function(self) return unpack(self) end
+}
+
+local function make_circle(x, y, r)
+    return setmetatable({type = "circle", x, y, r}, shape_mt)
+end
+
+local function make_aabb(x, y, w, h)
+    return setmetatable({type = "aabb", x, y, w, h}, shape_mt)
+end
+
+local function make_seg(x1, y1, x2, y2)
+    return setmetatable({type = "seg", x1, y1, x2, y2}, shape_mt)
 end
 
 -- Splash functions
