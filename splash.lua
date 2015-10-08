@@ -52,6 +52,9 @@ end
 
 -- Intersection Testing
 
+-- Shapes are implemented as arrays, which is slightly harder ro read, but
+-- better optimized by LuaJIT (and Lua).
+
 local function aabb_aabb_intersect(a, b)
     return a[1] < b[1] + b[3] and b[1] < a[1] + a[3] and
            a[2] < b[2] + b[4] and b[2] < a[2] + a[4]
@@ -358,6 +361,8 @@ end
 function splash:shape(thing)
     return shape_clone(self.shapes[thing])
 end
+
+-- Debug functions
 
 function splash:toCell(x, y)
     local cs = self.cellSize

@@ -46,17 +46,32 @@ three different types of Shapes: Circles, Segs, and AABBs.
 local aabb = splash.aabb(x, y, w, h)
 ```
 Creates an AABB at `(x, y)` with a width and height of `w` and `h`. AABBs are
-just rectangles that cannot rotate.
+just rectangles that cannot rotate. Both width and height must be positive.
 
 ```lua
+local circle = splash.circle(x, y, r)
+```
+Creates a circle at `(x, y)` with a radius of `r`. The radius must be positive.
 
+```lua
+local seg = splash.seg(x1, y1, x2, y2)
+```
+Creates a line segment from `(x1, y1)` to `(x2, y2)`.
+
+Shapes also have a few common methods.
+
+```lua
+local x, y, ... = shape:unpack() -- Unpacks all of the values used to construct the Shape
+local x, y, ... - shape() -- Shortcut for unpacking the Shape
+local newShape = shape:clone() -- Creates a copy of the Shape
+local didIntersect = shape:intersect(otherShape) -- Checks if two Shapes intersect. For segments, returns the time of intersection between 0 and 1
+local x, y = shape:pos() -- Unpacks only the first two values of the Shape, which are x and y.
+local shape = shape:update(newx, newy, [...]) -- Updates the values of the Shape without creating a new Shape. Returns the Shape for convenience
 ```
 
 ### Things
-Currently, all items in Splash are represented by AABBs, or Axis Aligned
-Bounding Boxes. In Splash, these are specified by four numbers, (x, y, w, h).
-(x, y) is the top left most coordinate, and w and h are positive numbers
-representing the width and height of the AABB.
+Things are keys that are associated with Shapes in a Splash World. They can be
+any Lua type, but should probably be tables.
 
 ```lua
 local shape = splash.aabb(x, y, w, h)
@@ -72,10 +87,21 @@ Removes a Thing from the world. Returns the Thing removed and its associated
 Shape for convenience.
 
 ```lua
-thing, shape = world:update(thing, shape)
+thing, shape = world:setShape(thing, shape)
 ```
-Changes the Shape size of an Thing in the World. Returns the thing for
+Changes the Shape of a Thing in the World. Returns the Thing for
 convenience, along with the new Shape.
+
+```lua
+shape:update(100, 100)
+thing, shape = world:update(thing)
+```
+Updates the Shape of a Thing in the World without creating a new Shape.
+Called with one argument, `world:update` updates the internal shape based on
+the shape that previously was used to put the Thing into the World. Called with
+more arguments, it updates the Shape and the position of the Thing in the world.
+For example, the above is equivalent to 
+`thing, shape = world:update(thing, 100, 100)`.
 
 ### Checking the World
 
