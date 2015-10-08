@@ -230,12 +230,19 @@ end
 
 -- Shapes
 
-local shape_mt = {
+local shape_mt
+shape_mt = {
     __index = {
         unpack = unpack,
         intersect = shape_intersect,
         collide = shape_collide,
-        pos = function(self) return self[1], self[2] end
+        pos = function(self) return self[1], self[2] end,
+        clone = function(self)
+            return setmetatable({
+                type = self.type,
+                self[1], self[2], self[3], self[4]
+            }, shape_mt)
+        end
     },
     __call = function(self) return unpack(self) end
 }
