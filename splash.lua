@@ -81,14 +81,8 @@ local function aabb_circle_intersect(aabb, circle)
 end
 
 local function circle_circle_intersect(c1, c2)
-    local dx, dy = c2[1] - c1[1], c2[2] - c1[2]
-    local d2 = dx * dx + dy * dy
-    local r2 = (c1[3] + c2[3])^2
-    if d2 <= r2 then
-        local inv_pen = 1 / sqrt(r2 - d2)
-        return true, inv_pen * dx, inv_pen * dy
-    end
-    return false
+    return (c2[1] - c1[1])^2 + (c2[2] - c1[2])^2 <= (c1[3] + c2[3])^2
+    -- return distance^2 <= (radius1 + radius2)^2
 end
 
 -- Segment intersections should also return one or two times of intersection
@@ -155,6 +149,17 @@ local intersections = {
     }
 }
 
+-- Static collisions
+-- Returns boolean, plus times of collision for segments
+local function shape_intersect(s1, s2)
+    local f = intersections[s1.type][s2.type]
+    if f then
+        return f(s1, s2)
+    else
+        return intersections[s2.type][s1.type](s2, s1)
+    end
+end
+
 -- Grid functions
 
 local function grid_aabb(aabb, cs, f, ...)
@@ -214,17 +219,6 @@ local grids = {
 
 local function shape_grid(shape, cs, f, ...)
     return grids[shape.type](shape, cs, f, ...)
-end
-
--- Static collisions
--- Returns boolean, plus times of collision for segments
-local function shape_intersect(s1, s2)
-    local f = intersections[s1.type][s2.type]
-    if f then
-        return f(s1, s2)
-    else
-        return intersections[s2.type][s1.type](s2, s1)
-    end
 end
 
 -- Swept collisions
