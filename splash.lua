@@ -234,7 +234,8 @@ local shape_mt = {
     __index = {
         unpack = unpack,
         intersect = shape_intersect,
-        collide = shape_collide
+        collide = shape_collide,
+        pos = function(self) return self[1], self[2] end
     },
     __call = function(self) return unpack(self) end
 }
