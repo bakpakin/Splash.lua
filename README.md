@@ -96,12 +96,13 @@ convenience, along with the new Shape.
 shape:update(100, 100)
 thing, shape = world:update(thing)
 ```
-Updates the Shape of a Thing in the World without creating a new Shape.
-Called with one argument, `world:update` updates the internal shape based on
-the shape that previously was used to put the Thing into the World. Called with
-more arguments, it updates the Shape and the position of the Thing in the world.
-For example, the above is equivalent to 
-`thing, shape = world:update(thing, 100, 100)`.
+Updates the Shape of a Thing in the World without creating a new Shape. Use this
+to move Things around instead of creating a new Shape every step with
+`setShape`. The above example sets the position of thing to (100, 100),
+regardless of what kind of shape it is, and is equivalent to:
+```lua
+thing, shape = world:update(thing, 100, 100)
+```
 
 ### Checking the World
 
@@ -132,7 +133,7 @@ local things = world:queryPoint(x, y, [filter])
 #### Iterating
 ```lua
 for thing in world:iterAll() do ... end
-for thing in world:iterRect(x, y, w, h) do ... end
+for thing in world:iterShape(shape) do ... end
 for thing in world:iterCell(cx, cy) do ... end
 for thing in world:iterPoint(x, y) do ... end
 ```
