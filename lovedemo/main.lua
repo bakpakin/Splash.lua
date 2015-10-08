@@ -18,6 +18,11 @@ function love.load()
     for i = 1, 150 do
         world:add({}, splash.circle(r(), r(), 25))
     end
+    for i = 1, 150 do
+        local x, y = r(), r()
+        local dir = math.random(2*math.pi)
+        world:add({}, splash.seg(x, y, x + 300 * math.cos(dir), y + 300 * math.sin(dir)))
+    end
     for i = 1, 45 do
         local spinner = {x = r(), y = r()}
         spinners[i] = world:add(spinner, splash.aabb(spinner.x + 100, spinner.y, 100, 100))
@@ -77,7 +82,7 @@ function love.draw()
 
     -- Simple HUD
     love.graphics.origin()
-    love.graphics.setColor(0, 0, 0, 230)
+    love.graphics.setColor(0, 0, 0, 180)
     love.graphics.rectangle("fill", 0, 0, 200, 85)
     love.graphics.setColor(255, 255, 255, 255)
     love.graphics.print("WASD to move camera.", 5, 5)

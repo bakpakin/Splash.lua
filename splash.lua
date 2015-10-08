@@ -195,7 +195,8 @@ local function grid_segment(seg, cs, f, ...)
     local tx = abs((floor(x1 / cs) * cs + (sx > 0 and cs or 0) - x1) / dx)
     local ty = abs((floor(y1 / cs) * cs + (sy > 0 and cs or 0) - y1) / dy)
     while x ~= xf or y ~= yf do
-        f(x, y, ...)
+        local a = f(x, y, ...)
+        if a then return a end
         if tx > ty then
             ty = ty + dty
             y = y + sy
