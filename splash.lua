@@ -224,13 +224,6 @@ local function shape_grid(shape, cs, f, ...)
     return grids[shape.type](shape, cs, f, ...)
 end
 
--- Swept collisions
--- Returns nil or manifest if collision
--- format of manifest: x, y, t, nx, ny, px, py
-local function shape_collide(s1, s2, xto, yto)
-
-end
-
 -- Shapes
 
 local shape_mt
@@ -257,7 +250,6 @@ shape_mt = {
     __index = {
         unpack = unpack,
         intersect = shape_intersect,
-        collide = shape_collide,
         pos = function(self) return self[1], self[2] end,
         update = shape_update,
         clone = shape_clone
