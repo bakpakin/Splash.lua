@@ -1,6 +1,8 @@
 # Splash.lua - 2D Spacial Hashing in Lua
 
-![Demo GIF](https://github.com/bakpakin/Splash.lua/raw/master/res/demo.gif)
+[![Build Status](https://travis-ci.org/bakpakin/Splash.lua.svg?branch=master)](https://travis-ci.org/bakpakin/Splash.lua)
+
+![Demo GIF](https://bakpakin.github.io/Splash.lua/res/demo.gif)
 
 ## About
 Splash.lua is a Lua module for storing objects in 2d space in way that is
