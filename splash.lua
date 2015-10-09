@@ -121,24 +121,27 @@ local function seg_seg_intersect(s1, s2)
     return true, t1
 end
 
-local function seg_aabb_intersect(seg, aabb)
-    local x1, y1 = seg[1], seg[2]
-    local x, y, w, h = aabb[1], aabb[2], aabb[3], aabb[4]
-    local idx, idy = 1 / seg[3], 1 / seg[4]
+-- Replace with liang-barsky? This is more elegant, though.
+local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
     local rx, ry = x - x1, y - y1
     local tx1, tx2, ty1, ty2
-    if idx > 0 then
-        tx1, tx2 = rx * idx, (rx + w) * idx
+    if dx >= 0 then
+        tx1, tx2 = rx / dx, (rx + w) / dx
     else
-        tx2, tx1 = rx * idx, (rx + w) * idx
+        tx2, tx1 = rx / dx, (rx + w) / dx
     end
-    if idy > 0 then
-        ty1, ty2 = ry * idy, (ry + h) * idy
+    if dy >= 0 then
+        ty1, ty2 = ry / dy, (ry + h) / dy
     else
-        ty2, ty1 = ry * idy, (ry + h) * idy
+        ty2, ty1 = ry / dy, (ry + h) / dy
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
     return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
+end
+
+local function seg_aabb_intersect(seg, aabb)
+    return seg_aabb_sweep_impl(seg[1], seg[2], seg[3], seg[4],
+        aabb[1], aabb[2], aabb[3], aabb[4])
 end
 
 local intersections = {
