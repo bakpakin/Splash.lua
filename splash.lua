@@ -91,7 +91,7 @@ end
 -- Segment intersections should also return one or two times of intersection
 -- from 0 to 1 for ray-casting
 local function seg_circle_intersect(seg, circle)
-    local px, py = seg[3] - seg[1], seg[4] - seg[2]
+    local px, py = seg[3], seg[4]
     local cx, cy = circle[1] - seg[1], circle[2] - seg[2]
     local pcx, pcy = px - cx, py - cy
     local pdotp = px * px + py * py
@@ -105,8 +105,8 @@ local function seg_circle_intersect(seg, circle)
 end
 
 local function seg_seg_intersect(s1, s2)
-    local dx1, dy1 = s1[3] - s1[1], s1[4] - s1[2]
-    local dx2, dy2 = s2[3] - s2[1], s2[4] - s2[2]
+    local dx1, dy1 = s1[3], s1[4]
+    local dx2, dy2 = s2[3], s2[4]
     local dx3, dy3 = s1[1] - s2[1], s1[2] - s2[2]
     local d = dx1*dy2 - dy1*dx2
     if d == 0 then return false end -- collinear
@@ -118,9 +118,9 @@ local function seg_seg_intersect(s1, s2)
 end
 
 local function seg_aabb_intersect(seg, aabb)
-    local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
+    local x1, y1 = seg[1], seg[2]
     local x, y, w, h = aabb[1], aabb[2], aabb[3], aabb[4]
-    local idx, idy = 1 / (x2 - x1), 1 / (y2 - y1)
+    local idx, idy = 1 / seg[3], 1 / seg[4]
     local rx, ry = x - x1, y - y1
     local tx1, tx2, ty1, ty2
     if idx > 0 then
@@ -176,15 +176,14 @@ local function grid_aabb(aabb, cs, f, ...)
 end
 
 local function grid_segment(seg, cs, f, ...)
-    local x1, y1, x2, y2 = seg[1], seg[2], seg[3], seg[4]
-    local sx, sy = x2 >= x1 and 1 or -1, y2 >= y1 and 1 or -1
+    local x1, y1, dx, dy = seg[1], seg[2], seg[3], seg[4]
+    local sx, sy = dx >= 0 and 1 or -1, dy >= 0 and 1 or -1
     local x, y = to_cell(cs, x1, y1)
-    local xf, yf = to_cell(cs, x2, y2)
+    local xf, yf = to_cell(cs, x1 + dx, y1 + dy)
     if x == xf and y == yf then
         local a = f(x, y, ...)
         if a then return a end
     end
-    local dx, dy = x2 - x1, y2 - y1
     local dtx, dty = abs(cs / dx), abs(cs / dy)
     local tx = abs((floor(x1 / cs) * cs + (sx > 0 and cs or 0) - x1) / dx)
     local ty = abs((floor(y1 / cs) * cs + (sy > 0 and cs or 0) - y1) / dy)
@@ -265,8 +264,8 @@ local function make_aabb(x, y, w, h)
     return setmetatable({type = "aabb", x, y, w, h}, shape_mt)
 end
 
-local function make_seg(x1, y1, x2, y2)
-    return setmetatable({type = "seg", x1, y1, x2, y2}, shape_mt)
+local function make_seg(x1, y1, dx, dy)
+    return setmetatable({type = "seg", x1, y1, dx, dy}, shape_mt)
 end
 
 -- Splash functions
@@ -395,14 +394,14 @@ local function ray_trace_helper(cx, cy, self, seg, ref)
         end
     end
     local tcx, tcy = to_cell(self.cellSize,
-                             (1 - ref[2]) * seg[1] + ref[2] * seg[3],
-                             (1 - ref[2]) * seg[2] + ref[2] * seg[4])
+                             seg[1] + ref[2] * seg[3],
+                             seg[2] + ref[2] * seg[4])
     if cx == tcx and cy == tcy then return true end
 end
 
 function splash:castRay(x1, y1, x2, y2)
     local ref = {false, 1}
-    local seg = make_seg(x1, y1, x2, y2)
+    local seg = make_seg(x1, y1, x2 - x1, y2 - y1)
     grid_segment(seg, self.cellSize, ray_trace_helper, self, seg, ref)
     local t = max(0, ref[2])
     return ref[1], (1 - t) * x1 + t * x2, (1 - t) * y1 + t * y2, t

@@ -17,7 +17,7 @@ function love.load()
         world:add({}, splash.circle(r(), r(), 25))
         local x, y = r(), r()
         local dir = math.random(2*math.pi)
-        world:add({}, splash.seg(x, y, x + 300 * math.cos(dir), y + 300 * math.sin(dir)))
+        world:add({}, splash.seg(x, y, 300 * math.cos(dir), 300 * math.sin(dir)))
     end
     for i = 1, 45 do
         local spinner = {x = r(), y = r()}
@@ -47,8 +47,10 @@ end
 
 local shape_draws = {
     circle = function(s, m) love.graphics.circle(m, s:unpack()) end,
-    seg = function(s, m) love.graphics.line(s:unpack()) end,
-    aabb = function(s, m) love.graphics.rectangle(m, s:unpack()) end
+    aabb = function(s, m) love.graphics.rectangle(m, s:unpack()) end,
+    seg = function(s, m)
+        local x, y, dx, dy = s:unpack()
+        love.graphics.line(x, y, x + dx, y + dy) end
 }
 
 local function draw_shape(shape, mode)
