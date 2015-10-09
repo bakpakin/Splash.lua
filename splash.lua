@@ -90,18 +90,22 @@ end
 
 -- Segment intersections should also return one or two times of intersection
 -- from 0 to 1 for ray-casting
-local function seg_circle_intersect(seg, circle)
-    local px, py = seg[3], seg[4]
-    local cx, cy = circle[1] - seg[1], circle[2] - seg[2]
-    local pcx, pcy = px - cx, py - cy
-    local pdotp = px * px + py * py
-    local r2 = circle[3]^2
-    local d2 = (px * cy - cx * py)^2 / pdotp
+local function seg_circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
+    local cx, cy = xc - x1, yc - y1
+    local pcx, pcy = dx - cx, dy - cy
+    local pdotp = dx * dx + dy * dy
+    local r2 = r^2
+    local d2 = (dx * cy - cx * dy)^2 / pdotp
     local dt2 = (r2 - d2)
     if dt2 < 0 then return false end
     local dt = sqrt(dt2 / pdotp)
-    local tbase = (px * cx + py * cy) / pdotp
+    local tbase = (dx * cx + dy * cy) / pdotp
     return tbase - dt <= 1 and tbase + dt >= 0, tbase - dt, tbase + dt
+end
+
+local function seg_circle_intersect(seg, circle)
+    return seg_circle_sweep_impl(seg[1], seg[2],seg[3], seg[4],
+        circle[1], circle[2], circle[3])
 end
 
 local function seg_seg_intersect(s1, s2)
