@@ -22,11 +22,7 @@ Shapes are not just limited to rectangles. The interface is slightly more
 flexible, and you don't have to create a large table when querying a large part
 of the world. Currently, AABBs, circles and line segments are supported.
 Full polygonal support is a maybe. Swept collisions and responses might also
-be added int the future. Another thing I wanted to do with this is
-implement some simple verlet physics. Although physics might complicate the API,
-I could make Splash much easier, simpler, and maybe faster than a full physics
-engine. If I do add physics, I probably won't add full polygon support.
-Clearly, this is still a Work In Progress.
+be added in the future. Clearly, this is still a Work In Progress.
 
 ## API
 
@@ -186,8 +182,6 @@ splash.lua to your project source folder.
 ## Todo
 * Add tests (busted)
 * Swept collisions
-* Add optional verlet physics? (A bit of a challenge, but a very good fit with
-    static collision checking). Might complicate API
 * Whatever features seem useful
 * Better, more fully featured demo(s)
 * Fix typos and other issues in this README
