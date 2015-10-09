@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/bakpakin/Splash.lua.svg?branch=master)](https://travis-ci.org/bakpakin/Splash.lua)
 
-![Demo GIF](https://bakpakin.github.io/Splash.lua/res/demo.gif)
+![Demo GIF](https://bakpakin.github.io/Splash.lua/img/demo.gif)
 
 ## About
 Splash.lua is a Lua module for storing objects in 2d space in way that is
