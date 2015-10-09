@@ -344,7 +344,7 @@ function splash:update(thing, ...)
     assert(shape, "Thing is not in world.")
     shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
     shape_grid(modifiedShape, self.cellSize, add_thing_to_cell, self, thing)
-    shape_clone_to(shape, modifiedShape)
+    shape_clone_to(modifiedShape, shape)
     return thing, modifiedShape
 end
 
