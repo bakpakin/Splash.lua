@@ -185,7 +185,6 @@ splash.lua to your project source folder.
 
 ## Todo
 * Add tests (busted)
-* Add CI (travis)
 * Swept collisions
 * Add optional verlet physics? (A bit of a challenge, but a very good fit with
     static collision checking). Might complicate API
