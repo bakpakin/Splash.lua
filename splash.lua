@@ -108,17 +108,20 @@ local function seg_circle_intersect(seg, circle)
         circle[1], circle[2], circle[3])
 end
 
-local function seg_seg_intersect(s1, s2)
-    local dx1, dy1 = s1[3], s1[4]
-    local dx2, dy2 = s2[3], s2[4]
-    local dx3, dy3 = s1[1] - s2[1], s1[2] - s2[2]
-    local d = dx1*dy2 - dy1*dx2
+local function seg_seg_sweep_impl(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
+    local d = dx1 * dy2 - dy1 * dx2
     if d == 0 then return false end -- collinear
-    local t1 = (dx2 * dy3 - dy2 * dx3) / d
+    local dx, dy = x1 - x2, y1 - y2
+    local t1 = (dx2 * dy - dy2 * dx) / d
     if t1 < 0 or t1 > 1 then return false end
-    local t2 = (dx1 * dy3 - dy1 * dx3) / d
+    local t2 = (dx1 * dy - dy1 * dx) / d
     if t2 < 0 or t2 > 1 then return false end
-    return true, t1
+    return true, t1, t2
+end
+
+local function seg_seg_intersect(s1, s2)
+    return seg_seg_sweep_impl(s1[1], s1[2], s1[3], s1[4],
+        s2[1], s2[2], s2[3], s2[4])
 end
 
 -- Replace with liang-barsky? This is more elegant, though.
