@@ -124,10 +124,10 @@ local function seg_seg_intersect(s1, s2)
         s2[1], s2[2], s2[3], s2[4])
 end
 
--- Replace with liang-barsky? This is more elegant, though.
+-- Replace with liang-barsky?
 local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
     local rx, ry = x - x1, y - y1
-    local tx1, tx2, ty1, ty2
+    local tx1, tx2, ty1, ty2, nx, ny, nx2, ny2
     if dx >= 0 then
         tx1, tx2 = rx / dx, (rx + w) / dx
     else
@@ -139,7 +139,18 @@ local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
         ty2, ty1 = ry / dy, (ry + h) / dy
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
-    return t1 <= t2 and t1 <= 1 and t2 >= 0, t1, t2
+    local c = t1 <= t2 and t1 <= 1 and t2 >= 0
+    if c then
+        if ty1 < tx1 then
+            nx, ny = dx >= 0 and -1 or 1, 0
+        elseif tx1 < ty1 then
+            nx, ny = 0, dy >= 0 and -1 or 1
+        else -- Perfect corner intersection
+            nx, ny = 0, dy >= 0 and -1 or 1
+            nx2, ny2 = dx >= 0 and -1 or 1, 0
+        end
+    end
+    return c, t1, nx, ny, nx2, ny2
 end
 
 local function seg_aabb_intersect(seg, aabb)
@@ -164,12 +175,12 @@ local intersections = {
 
 -- Static collisions
 -- Returns boolean, plus times of collision for segments
-local function shape_intersect(s1, s2)
-    local f = intersections[s1.type][s2.type]
+local function shape_intersect(a, b)
+    local f = intersections[a.type][b.type]
     if f then
-        return f(s1, s2)
+        return f(a, b)
     else
-        return intersections[s2.type][s1.type](s2, s1)
+        return intersections[b.type][a.type](b, a)
     end
 end
 
@@ -197,6 +208,12 @@ end
 
 local function seg_seg_sweep(a, b, xto, yto)
 
+end
+
+local function seg_seg_noexit(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
+    local d = dx1 * dy2 - dy1 * dx2
+    local dx, dy = x1 - x2, y1 - y2
+    return (dx2 * dy - dy2 * dx) / d, (dx1 * dy - dy1 * dx) / d
 end
 
 local function seg_circle_sweep(seg, circle, xto, yto)
@@ -231,7 +248,13 @@ local function shape_sweep(a, b, xto, yto)
     if f then
         return f(a, b, xto, yto)
     else
-        return sweeps[b.type][a.type](a, b, xto, yto)
+        local c, t, nx, ny, nx2, ny2 = sweeps[b.type][a.type](a, b, xto, yto)
+        if c then
+            t = 1 - t
+            nx, ny = -nx, -ny
+            if nx2 then nx2, ny2 = -nx2, -ny2 end
+        end
+        return c, t, nx, ny, nx2, ny2
     end
 end
 

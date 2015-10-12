@@ -42,11 +42,12 @@ function love.draw()
 
     love.graphics.line(mx + camx, my + camy, 0, 0)
     world:update(Mouse, mx + camx, my + camy)
-    local c, t = world:shape(Mouse):sweep(world:shape(Target), 0, 0)
+    local c, t, nx, ny = world:shape(Mouse):sweep(world:shape(Target), 0, 0)
     if c then
         t = 1 - t
         local cx, cy = world:shape(Mouse):pos()
         world:update(Mouse, cx * t, cy * t)
+        love.graphics.line(mx + camx, my + camy, mx + camx + 100 * nx, my + camy + 100 * ny)
     end
 
     -- Draw Visible Shapes
