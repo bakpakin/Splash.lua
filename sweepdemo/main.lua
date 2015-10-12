@@ -9,7 +9,7 @@ function love.load()
     love.window.setMode(900, 600, {resizable = true})
     shapeMouse = splash.aabb(0, 0, 100, 200)
     Mouse = world:add({}, shapeMouse)
-    shapeTarget = splash.aabb(0, 0, 400, 250)
+    shapeTarget = splash.aabb(-24, -57, 400, 250)
     Target = world:add({}, shapeTarget)
 end
 
@@ -38,6 +38,9 @@ function love.draw()
     love.graphics.translate(-camx, -camy)
 
     local mx, my = love.mouse.getPosition()
+    love.graphics.setColor(255, 255, 255)
+
+    love.graphics.line(mx + camx, my + camy, 0, 0)
     world:update(Mouse, mx + camx, my + camy)
     local c, t = world:shape(Mouse):sweep(world:shape(Target), 0, 0)
     if c then
