@@ -31,7 +31,7 @@ Splash works with the concept of the World, a manager that keeps track of all
 things in it.
 ```lua
 local splash = require "splash"
-local world = splash(cellSize)
+local world = splash.new(cellSize) -- or splash(cellSize)
 ```
 Creates a new Splash world with a given cellSize. Leave `cellSize` as nil to get
 the default of 128.
