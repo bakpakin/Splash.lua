@@ -173,6 +173,68 @@ local function shape_intersect(s1, s2)
     end
 end
 
+-- Swept collisions
+-- Function should return boolean for intersection, time of intersection,
+-- and normal like so: didCollide, t, nx, ny
+
+-- Minkowski difference is another aabb
+local function aabb_aabb_sweep(a, b, xto, yto)
+    local x1, y1, w1, h1 = a:unpack()
+    local x2, y2, w2, h2 = b:unpack()
+    -- Calculate Minkowski Difference
+    local x, y, w, h = x2 - x1 - w1, y2 - y1 - h1, w1 + w2, h1 + h2
+    return seg_aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h) -- TODO return normal
+end
+
+-- Minkowksi Difference is another circle
+local function circle_circle_sweep(a, b, xto, yto)
+    local x1, y1, r1 = a:unpack()
+    local x2, y2, r2 = b:unpack()
+    -- Minkowski Difference
+    local x, y, r = x2 - x1, y2 - y1, r1 + r2
+    return seg_circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r) -- TODO return normal
+end
+
+local function seg_seg_sweep(a, b, xto, yto)
+
+end
+
+local function seg_circle_sweep(seg, circle, xto, yto)
+
+end
+
+local function seg_aabb_sweep(seg, aabb, xto, yto)
+
+end
+
+local function aabb_circle_sweep(aabb, circle, xto, yto)
+
+end
+
+local sweeps = {
+    circle = {
+        circle = circle_circle_sweep,
+    },
+    aabb = {
+        aabb = aabb_aabb_sweep,
+        circle = aabb_circle_sweep
+    },
+    seg = {
+        seg = seg_seg_sweep,
+        aabb = seg_aabb_sweep,
+        circle = seg_circle_sweep
+    }
+}
+
+local function shape_sweep(a, b, xto, yto)
+    local f = sweeps[a.type][b.type]
+    if f then
+        return f(a, b, xto, yto)
+    else
+        return sweeps[b.type][a.type](a, b, xto, yto)
+    end
+end
+
 -- Grid functions
 
 local function grid_aabb(aabb, cs, f, ...)
@@ -259,6 +321,7 @@ shape_mt = {
     __index = {
         unpack = unpack,
         intersect = shape_intersect,
+        sweep = shape_sweep,
         pos = function(self) return self[1], self[2] end,
         update = shape_update,
         clone = shape_clone
