@@ -194,7 +194,7 @@ local function aabb_aabb_sweep(a, b, xto, yto)
     local x2, y2, w2, h2 = b:unpack()
     -- Calculate Minkowski Difference
     local x, y, w, h = x2 - x1 - w1, y2 - y1 - h1, w1 + w2, h1 + h2
-    return seg_aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h) -- TODO return normal
+    return seg_aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h)
 end
 
 -- Minkowksi Difference is another circle
@@ -203,7 +203,13 @@ local function circle_circle_sweep(a, b, xto, yto)
     local x2, y2, r2 = b:unpack()
     -- Minkowski Difference
     local x, y, r = x2 - x1, y2 - y1, r1 + r2
-    return seg_circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r) -- TODO return normal
+    local c, t, nx, ny = seg_circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
+    if c then
+        nx, ny = x1 + x * t, y1 + y * t
+        local d = sqrt(nx * nx + ny * ny)
+        nx, ny = nx / d, ny / d
+    end
+    return c, t, nx, ny
 end
 
 local function seg_seg_sweep(a, b, xto, yto)

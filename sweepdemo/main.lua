@@ -7,9 +7,9 @@ local camx, camy = 0, 0
 
 function love.load()
     love.window.setMode(900, 600, {resizable = true})
-    shapeMouse = splash.aabb(0, 0, 100, 200)
+    shapeMouse = splash.circle(0, 0, 100, 200)
     Mouse = world:add({}, shapeMouse)
-    shapeTarget = splash.aabb(-24, -57, 400, 250)
+    shapeTarget = splash.circle(-24, -57, 400, 250)
     Target = world:add({}, shapeTarget)
 end
 
