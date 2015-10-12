@@ -266,8 +266,8 @@ end
 
 -- Grid functions
 
-local function grid_aabb(aabb, cs, f, ...)
-    local x1, y1, x2, y2 = to_cell_box(cs, aabb[1], aabb[2], aabb[3], aabb[4])
+local function grid_aabb_impl(x1, y1, x2, y2, cs, f, ...)
+    x1, y1, x2, y2 = to_cell_box(cs, x1, y1, x2, y2)
     for gx = x1, x2 do
         for gy = y1, y2 do
             local a = f(gx, gy, ...)
@@ -276,8 +276,7 @@ local function grid_aabb(aabb, cs, f, ...)
     end
 end
 
-local function grid_segment(seg, cs, f, ...)
-    local x1, y1, dx, dy = seg[1], seg[2], seg[3], seg[4]
+local function grid_segment_impl(x1, y1, dx, dy, cs, f, ...)
     local sx, sy = dx >= 0 and 1 or -1, dy >= 0 and 1 or -1
     local x, y = to_cell(cs, x1, y1)
     local xf, yf = to_cell(cs, x1 + dx, y1 + dy)
@@ -302,16 +301,18 @@ local function grid_segment(seg, cs, f, ...)
     return f(xf, yf, ...)
 end
 
+local function grid_segment(seg, cs, f, ...)
+    return grid_segment_impl(seg[1], seg[2], seg[3], seg[4], cs, f, ...)
+end
+
+local function grid_aabb(aabb, cs, f, ...)
+    return grid_aabb_impl(aabb[1], aabb[2], aabb[3], aabb[4], cs, f, ...)
+end
+
 -- For now, just use aabb grid code. Large circles will be in extra cells.
 local function grid_circle(circle, cs, f, ...)
     local x, y, r = circle[1], circle[2], circle[3]
-    local x1, y1, x2, y2 = to_cell_box(cs, x - r, y - r, 2 * r, 2 * r)
-    for cy = y1, y2 do
-        for cx = x1, x2 do
-            local a = f(cx, cy, ...)
-            if a then return a end
-        end
-    end
+    return grid_aabb_impl(x - r, y - r, 2 * r, 2 * r, cs, f, ...)
 end
 
 local grids = {
