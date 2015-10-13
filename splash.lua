@@ -214,12 +214,6 @@ local function seg_seg_sweep(a, b, xto, yto)
 
 end
 
-local function seg_seg_noexit(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
-    local d = dx1 * dy2 - dy1 * dx2
-    local dx, dy = x1 - x2, y1 - y2
-    return (dx2 * dy - dy2 * dx) / d, (dx1 * dy - dy1 * dx) / d
-end
-
 local function seg_circle_sweep(seg, circle, xto, yto)
 
 end
@@ -252,13 +246,11 @@ local function shape_sweep(a, b, xto, yto)
     if f then
         return f(a, b, xto, yto)
     else
-        local c, t, nx, ny, nx2, ny2 = sweeps[b.type][a.type](a, b, xto, yto)
+        local c, t, nx, ny = sweeps[b.type][a.type](a, b, xto, yto)
         if c then
-            t = 1 - t
-            nx, ny = -nx, -ny
-            if nx2 then nx2, ny2 = -nx2, -ny2 end
+            t, nx, ny = 1 - t, -nx, -ny
         end
-        return c, t, nx, ny, nx2, ny2
+        return c, t, nx, ny
     end
 end
 
