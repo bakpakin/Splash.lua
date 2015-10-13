@@ -91,7 +91,7 @@ end
 
 -- Segment intersections should also return one or two times of intersection
 -- from 0 to 1 for ray-casting
-local function seg_circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
+local function circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
     local cx, cy = xc - x1, yc - y1
     local pcx, pcy = dx - cx, dy - cy
     local pdotp = dx * dx + dy * dy
@@ -105,11 +105,11 @@ local function seg_circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
 end
 
 local function seg_circle_intersect(seg, circle)
-    return seg_circle_sweep_impl(seg[1], seg[2],seg[3], seg[4],
+    return circle_sweep_impl(seg[1], seg[2],seg[3], seg[4],
         circle[1], circle[2], circle[3])
 end
 
-local function seg_seg_sweep_impl(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
+local function seg_sweep_impl(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
     local d = dx1 * dy2 - dy1 * dx2
     if d == 0 then return false end -- collinear
     local dx, dy = x1 - x2, y1 - y2
@@ -121,12 +121,12 @@ local function seg_seg_sweep_impl(x1, y1, dx1, dy1, x2, y2, dx2, dy2)
 end
 
 local function seg_seg_intersect(s1, s2)
-    return seg_seg_sweep_impl(s1[1], s1[2], s1[3], s1[4],
+    return seg_sweep_impl(s1[1], s1[2], s1[3], s1[4],
         s2[1], s2[2], s2[3], s2[4])
 end
 
 -- Replace with liang-barsky?
-local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
+local function aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
     local rx, ry = x - x1, y - y1
     local tx1, tx2, ty1, ty2, nx, ny
     if dx >= 0 then
@@ -152,7 +152,7 @@ local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
 end
 
 local function seg_aabb_intersect(seg, aabb)
-    return seg_aabb_sweep_impl(seg[1], seg[2], seg[3], seg[4],
+    return aabb_sweep_impl(seg[1], seg[2], seg[3], seg[4],
         aabb[1], aabb[2], aabb[3], aabb[4])
 end
 
@@ -192,7 +192,7 @@ local function aabb_aabb_sweep(a, b, xto, yto)
     local x2, y2, w2, h2 = b:unpack()
     -- Calculate Minkowski Difference
     local x, y, w, h = x2 - x1 - w1, y2 - y1 - h1, w1 + w2, h1 + h2
-    return seg_aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h)
+    return aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h)
 end
 
 -- Minkowksi Difference is another circle
@@ -201,7 +201,7 @@ local function circle_circle_sweep(a, b, xto, yto)
     local x2, y2, r2 = b:unpack()
     -- Minkowski Difference
     local x, y, r = x2 - x1, y2 - y1, r1 + r2
-    local c, t, nx, ny = seg_circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
+    local c, t, nx, ny = circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
     if c then
         nx, ny = x1 + x * t, y1 + y * t
         local d = sqrt(nx * nx + ny * ny)
