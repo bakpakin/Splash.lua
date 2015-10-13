@@ -97,7 +97,7 @@ local function seg_circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
     local r2 = r^2
     local d2 = (dx * cy - cx * dy)^2 / pdotp
     local dt2 = (r2 - d2)
-    if dt2 < 0 then return false end
+    if dt2 <= 0 then return false end
     local dt = sqrt(dt2 / pdotp)
     local tbase = (dx * cx + dy * cy) / pdotp
     return tbase - dt <= 1 and tbase + dt >= 0, tbase - dt, tbase + dt
@@ -127,7 +127,7 @@ end
 -- Replace with liang-barsky?
 local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
     local rx, ry = x - x1, y - y1
-    local tx1, tx2, ty1, ty2, nx, ny, nx2, ny2
+    local tx1, tx2, ty1, ty2, nx, ny
     if dx >= 0 then
         tx1, tx2 = rx / dx, (rx + w) / dx
     else
@@ -139,18 +139,15 @@ local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
         ty2, ty1 = ry / dy, (ry + h) / dy
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
-    local c = t1 <= t2 and t1 <= 1 and t2 >= 0
+    local c = t1 <  t2 and t1 <= 1 and t2 >= 0
     if c then
         if ty1 < tx1 then
             nx, ny = dx >= 0 and -1 or 1, 0
-        elseif tx1 < ty1 then
+        else
             nx, ny = 0, dy >= 0 and -1 or 1
-        else -- Perfect corner intersection
-            nx, ny = 0, dy >= 0 and -1 or 1
-            nx2, ny2 = dx >= 0 and -1 or 1, 0
         end
     end
-    return c, t1, nx, ny, nx2, ny2
+    return c, t1, nx, ny
 end
 
 local function seg_aabb_intersect(seg, aabb)
