@@ -34,6 +34,7 @@ local wrap = coroutine.wrap
 local yield = coroutine.yield
 
 local SPACE_KEY_CONST = 2^25
+local EPSILON = 2^(-15)
 
 local splash = {}
 splash.__index = splash
@@ -56,35 +57,35 @@ end
 -- better optimized by LuaJIT (and Lua).
 
 local function aabb_aabb_intersect(a, b)
-    return a[1] < b[1] + b[3] and b[1] < a[1] + a[3] and
-           a[2] < b[2] + b[4] and b[2] < a[2] + a[4]
+    return a[1] + EPSILON < b[1] + b[3] and b[1] + EPSILON < a[1] + a[3] and
+           a[2] + EPSILON < b[2] + b[4] and b[2] + EPSILON < a[2] + a[4]
 end
 
 local function aabb_circle_intersect(aabb, circle)
     local x, y, w, h = aabb[1], aabb[2], aabb[3], aabb[4]
     local xc, yc, r = circle[1], circle[2], circle[3]
-    if xc < x - r then return false end
-    if xc > x + w + r then return false end
-    if yc < y - r then return false end
-    if yc > y + h + r then return false end
+    if xc + EPSILON < x - r then return false end
+    if xc + EPSILON > x + w + r then return false end
+    if yc + EPSILON < y - r then return false end
+    if yc + EPSILON > y + h + r then return false end
     if xc < x then
         if yc < y then
-            return r ^ 2 > (yc - y) ^ 2 + (xc - x) ^ 2
+            return r ^ 2 > (yc - y) ^ 2 + (xc - x) ^ 2 + EPSILON
         elseif yc > y + h then
-            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x) ^ 2
+            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x) ^ 2 + EPSILON
         end
     elseif xc > x + w then
         if yc < y then
-            return r ^ 2 > (yc - y) ^ 2 + (xc - x - w) ^ 2
+            return r ^ 2 > (yc - y) ^ 2 + (xc - x - w) ^ 2 + EPSILON
         elseif yc > y + h then
-            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x - w) ^ 2
+            return r ^ 2 > (yc - y - h) ^ 2 + (xc - x - w) ^ 2 + EPSILON
         end
     end
     return true
 end
 
 local function circle_circle_intersect(c1, c2)
-    return (c2[1] - c1[1])^2 + (c2[2] - c1[2])^2 <= (c1[3] + c2[3])^2
+    return (c2[1] - c1[1])^2 + (c2[2] - c1[2])^2 + EPSILON < (c1[3] + c2[3])^2
     -- return distance^2 <= (radius1 + radius2)^2
 end
 
@@ -97,7 +98,7 @@ local function seg_circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
     local r2 = r^2
     local d2 = (dx * cy - cx * dy)^2 / pdotp
     local dt2 = (r2 - d2)
-    if dt2 <= 0 then return false end
+    if dt2 < EPSILON then return false end
     local dt = sqrt(dt2 / pdotp)
     local tbase = (dx * cx + dy * cy) / pdotp
     return tbase - dt <= 1 and tbase + dt >= 0, tbase - dt, tbase + dt
@@ -139,7 +140,7 @@ local function seg_aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
         ty2, ty1 = ry / dy, (ry + h) / dy
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
-    local c = t1 <  t2 and t1 <= 1 and t2 >= 0
+    local c = ((t1 + EPSILON < t2) and (t1 < 1) and (t2 > 0))
     if c then
         if ty1 < tx1 then
             nx, ny = dx >= 0 and -1 or 1, 0
