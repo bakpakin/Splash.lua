@@ -577,7 +577,7 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
             local otherShape = shapes[otherThing]
             local r = f and f(thing, otherThing) or "slide"
             if r then
-                local c, t, nx, ny = shape_sweep(shape, otherShape, x, y)
+                local c, t, nx, ny = shape_sweep(shape, otherShape, xto, yto)
                 if c then
                     manifests[#manifests + 1] = {otherShape, t, nx, ny, r}
                 end
