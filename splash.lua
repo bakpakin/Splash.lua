@@ -539,40 +539,76 @@ end
 
 -- Movement
 
--- Repsonse take params xstart, ystart, xgoal, ygoal, t-ßso-far, normal x, and
--- normal y. Should return the new x goal, the new y goal, and the new t-so-far.
+-- Repsonses should take params x, y, xgoal, ygoal, normal x, and
+-- normal y. Should return the new x goal, the new y goal
 local responses = {
-    slide = function(x1, y1, x2, y2, t, nx, ny)
+    slide = function(x, y, xgoal, ygoal, nx, ny)
 
-    end
+    end,
+    touch = function(x, y) return x, y end
 }
 
 local function sortByT(a, b) return a[2] < b[2] end
 
-function splash:move(thing, x, y, filter)
-    local shapes = self.shapes
-    local shape = shapes[thing]
-    assert(shape, "Thing is not in World.")
-    if x == shape[1] and y == shape[2] then return thing, shape end
-    -- Early Exit
+local function swept_bbox(shape, xto, yto)
     local xb, yb, wb, hb = bbox(shape)
-    if x > xb then wb = wb + x - xb else xb = x end
-    if y > yb then hb = hb + y - yb else yb = y end
+    local r = shape.type == "circle" and shape[3] or 0
+    if xto < xb + r then xb = xto - r end
+    if yto < yb + r then yb = yto - r end
+    wb = wb + abs(xto - xb - r)
+    hb = hb + abs(yto - yb - r)
+    return xb, yb, wb, hb
+end
+
+-- Recursive function that should return where a shape moves to
+local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
+    if c <= 0 then
+        shape[1], shape[2] = xto, yto
+        return shape
+    end
+    if (xto == shape[1] and yto == shape[2]) then
+        return shape
+    end
+    local xb, yb, wb, hb = swept_bbox(shape, xto, yto)
     local manifests = {}
     for otherThing in self:iterShape(splash.aabb(xb, yb, wb, hb)) do
-        local otherShape = shapes[otherThing]
-        local response = filter and filter(otherThing) or "slide"
-        if response then
-            local c, t, nx, ny = shape_sweep(shape, otherShape, x, y)
-            if c then
-                manifests[#manifests + 1] = {otherShape, t, nx, ny}
+        if not seen[otherThing] then
+            seen[otherThing] = true
+            local otherShape = shapes[otherThing]
+            local r = f and f(thing, otherThing) or "slide"
+            if r then
+                local c, t, nx, ny = shape_sweep(shape, otherShape, x, y)
+                if c then
+                    manifests[#manifests + 1] = {otherShape, t, nx, ny, r}
+                end
             end
         end
     end
     sort(manifests, sortByT)
     local m1 = manifests[1]
     -- TODO sort same time collisions
+    if m1 then
+        cs[#cs + 1] = m1
+        local t, invt = m1[2], 1 - m1[2]
+        local xc, yc = invt * shape[1] + t * xto, invt * shape[2] + t * yto
+        shape[1], shape[2] = xc, yc
+        local _xto, _yto = responses[m1[5]](xc, yc, xto, yto, m1[3], m1[4])
+        move_support(self, thing, shape, _xto, _yto, cs, f, c - 1, seen)
+    else -- no collisions
+        shape[1], shape[2] = xto, yto
+    end
+    return shape
+end
 
+function splash:move(thing, x, y, filter)
+    local shapes = self.shapes
+    local shape = shapes[thing]
+    assert(shape, "Thing is not in World.")
+    shape = shape:clone()
+    local cs = {}
+    move_support(self, thing, shape, x, y, cs, filter, 100, {})
+    self:update(thing, shape[1], shape[2])
+    return shape[1], shape[2], cs
 end
 
 -- Utility functions
