@@ -19,19 +19,20 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ]]
 
-local floor = math.floor
 local pairs = pairs
 local setmetatable = setmetatable
 local unpack = unpack
 local type = type
+local assert = assert
+local select = select
 local abs = math.abs
 local min = math.min
 local max = math.max
 local sqrt = math.sqrt
-local assert = assert
-local select = select
+local floor = math.floor
 local wrap = coroutine.wrap
 local yield = coroutine.yield
+local sort = table.sort
 
 local SPACE_KEY_CONST = 2^25
 local EPSILON = 2^(-15)
@@ -256,8 +257,8 @@ end
 
 -- Grid functions
 
-local function grid_aabb_impl(x1, y1, x2, y2, cs, f, ...)
-    x1, y1, x2, y2 = to_cell_box(cs, x1, y1, x2, y2)
+local function grid_aabb_impl(x, y, w, h, cs, f, ...)
+    local x1, y1, x2, y2 = to_cell_box(cs, x, y, w, h)
     for gx = x1, x2 do
         for gy = y1, y2 do
             local a = f(gx, gy, ...)
@@ -315,6 +316,24 @@ local function shape_grid(shape, cs, f, ...)
     return grids[shape.type](shape, cs, f, ...)
 end
 
+-- Getting Bounding Boxes
+
+local bboxes = {
+    circle = function(x)
+        return x[1] - x[3], x[2] - x[3], 2 * x[3], 2 * x[3]
+    end,
+    aabb = function(x)
+        return x[1], x[2], x[3], x[4]
+    end,
+    seg = function(x)
+        return x[1], x[2], x[3], x[4]
+    end
+}
+
+local function bbox(shape)
+    return bboxes[shape.type](shape)
+end
+
 -- Shapes
 
 local shape_mt
@@ -337,6 +356,8 @@ local function shape_update(s, x, y, a, b)
     return s
 end
 
+
+
 shape_mt = {
     __index = {
         unpack = unpack,
@@ -344,6 +365,7 @@ shape_mt = {
         sweep = shape_sweep,
         pos = function(self) return self[1], self[2] end,
         update = shape_update,
+        bbox = bbox,
         clone = shape_clone
     },
     __call = function(self) return unpack(self) end
@@ -360,6 +382,81 @@ end
 local function make_seg(x1, y1, dx, dy)
     return setmetatable({type = "seg", x1, y1, dx, dy}, shape_mt)
 end
+
+-- Map functions
+
+local function map_shape_helper(cx, cy, self, seen, f, shape)
+    local list = self[SPACE_KEY_CONST * cx + cy]
+    if not list then return end
+    local shapes = self.shapes
+    for i = 1, #list do
+        local thing = list[i]
+        if not seen[thing] then
+            local c, t = shape_intersect(shape, shapes[thing])
+            if c then
+                f(thing, t)
+            end
+            seen[thing] = true
+        end
+    end
+end
+
+function splash:mapShape(f, shape)
+    local seen = {}
+    return shape_grid(shape, self.cellSize,
+        map_shape_helper, self, seen, f, shape)
+end
+
+function splash:mapPoint(f, x, y)
+    return splash:mapShape(f, make_circle(x, y, 0))
+end
+
+function splash:mapCell(f, cx, cy)
+    local list = self[SPACE_KEY_CONST * cx + cy]
+    if not list then return end
+    for i = 1, #list do f(list[i]) end
+end
+
+function splash:mapAll(f)
+    local seen = {}
+    for k, list in pairs(self) do
+        if type(k) == "number" then
+            for i = 1, #list do
+                local thing = list[i]
+                if not seen[thing] then
+                    seen[thing] = true
+                    f(thing)
+                end
+            end
+        end
+    end
+end
+
+-- Generate the iter versions of Map functions
+local default_filter = function() return true end
+local function generate_query_iter(name, filter_index)
+    local mapName = "map" .. name
+    local iterName = "iter" .. name
+    local queryName = "query" .. name
+    splash[queryName] = function(self, ...)
+        local ret = {}
+        local filter = select(filter_index, ...) or default_filter
+        for thing in self[iterName](self, ...) do
+            if filter(thing, ...) then
+                ret[#ret + 1] = thing
+            end
+        end
+        return ret
+    end
+    splash[iterName] = function(self, a, b)
+        return wrap(function() self[mapName](self, yield, a, b) end)
+    end
+end
+
+generate_query_iter("Shape", 2)
+generate_query_iter("All", 1)
+generate_query_iter("Cell", 3)
+generate_query_iter("Point", 3)
 
 -- Splash functions
 
@@ -440,6 +537,44 @@ function splash:update(thing, ...)
     return thing, modifiedShape
 end
 
+-- Movement
+
+-- Repsonse take params xstart, ystart, xgoal, ygoal, t-ßso-far, normal x, and
+-- normal y. Should return the new x goal, the new y goal, and the new t-so-far.
+local responses = {
+    slide = function(x1, y1, x2, y2, t, nx, ny)
+
+    end
+}
+
+local function sortByT(a, b) return a[2] < b[2] end
+
+function splash:move(thing, x, y, filter)
+    local shapes = self.shapes
+    local shape = shapes[thing]
+    assert(shape, "Thing is not in World.")
+    if x == shape[1] and y == shape[2] then return thing, shape end
+    -- Early Exit
+    local xb, yb, wb, hb = bbox(shape)
+    if x > xb then wb = wb + x - xb else xb = x end
+    if y > yb then hb = hb + y - yb else yb = y end
+    local manifests = {}
+    for otherThing in self:iterShape(splash.aabb(xb, yb, wb, hb)) do
+        local otherShape = shapes[otherThing]
+        local response = filter and filter(otherThing) or "slide"
+        if response then
+            local c, t, nx, ny = shape_sweep(shape, otherShape, x, y)
+            if c then
+                manifests[#manifests + 1] = {otherShape, t, nx, ny}
+            end
+        end
+    end
+    sort(manifests, sortByT)
+    local m1 = manifests[1]
+    -- TODO sort same time collisions
+
+end
+
 -- Utility functions
 
 function splash:shape(thing)
@@ -499,81 +634,6 @@ function splash:castRay(x1, y1, x2, y2)
     local t = max(0, ref[2])
     return ref[1], (1 - t) * x1 + t * x2, (1 - t) * y1 + t * y2, t
 end
-
--- Map functions
-
-local function map_shape_helper(cx, cy, self, seen, f, shape)
-    local list = self[SPACE_KEY_CONST * cx + cy]
-    if not list then return end
-    local shapes = self.shapes
-    for i = 1, #list do
-        local thing = list[i]
-        if not seen[thing] then
-            local c, t1, t2 = shape_intersect(shape, shapes[thing])
-            if c then
-                f(thing, t1, t2)
-            end
-            seen[thing] = true
-        end
-    end
-end
-
-function splash:mapShape(f, shape)
-    local seen = {}
-    return shape_grid(shape, self.cellSize,
-        map_shape_helper, self, seen, f, shape)
-end
-
-function splash:mapPoint(f, x, y)
-    return splash:mapShape(f, make_circle(x, y, 0))
-end
-
-function splash:mapCell(f, cx, cy)
-    local list = self[SPACE_KEY_CONST * cx + cy]
-    if not list then return end
-    for i = 1, #list do f(list[i]) end
-end
-
-function splash:mapAll(f)
-    local seen = {}
-    for k, list in pairs(self) do
-        if type(k) == "number" then
-            for i = 1, #list do
-                local thing = list[i]
-                if not seen[thing] then
-                    seen[thing] = true
-                    f(thing)
-                end
-            end
-        end
-    end
-end
-
--- Generate the iter versions of Map functions
-local default_filter = function() return true end
-local function generate_query_iter(name, filter_index)
-    local mapName = "map" .. name
-    local iterName = "iter" .. name
-    local queryName = "query" .. name
-    splash[queryName] = function(self, ...)
-        local ret = {}
-        local filter = select(filter_index, ...) or default_filter
-        for thing in self[iterName](self, ...) do
-            if filter(thing, ...) then
-                ret[#ret + 1] = thing
-            end
-        end
-        return ret
-    end
-    splash[iterName] = function(self, a, b)
-        return wrap(function() self[mapName](self, yield, a, b) end)
-    end
-end
-
-generate_query_iter("Shape", 2)
-generate_query_iter("All", 1)
-generate_query_iter("Cell", 3)
-generate_query_iter("Point", 3)
 
 -- Make the module
 return setmetatable({
