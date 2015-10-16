@@ -603,15 +603,20 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
     end
 end
 
-function splash:move(thing, x, y, filter)
+function splash:check(thing, x, y, filter)
     local shapes = self.shapes
     local shape = shapes[thing]
     assert(shape, "Thing is not in World.")
     shape = shape:clone()
     local cs = {}
     move_support(self, thing, shape, x, y, cs, filter, 10, {})
-    self:update(thing, shape[1], shape[2])
     return shape[1], shape[2], cs
+end
+
+function splash:move(thing, x, y, filter)
+    local xto, yto, cs = self:check(thing, x, y, filter)
+    self:update(thing, xto, yto)
+    return xto, yto, cs
 end
 
 -- Utility functions
