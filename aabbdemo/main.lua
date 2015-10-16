@@ -3,7 +3,7 @@ local splash = require "splash"
 local world = splash.new()
 local player = world:add({}, splash.aabb(100, 100, 20, 20))
 for i = 1, 100 do
-    world:add({}, splash.aabb(20, i*20, 20, 20))
+    world:add({}, splash.aabb(math.random(600), math.random(600), 20, 20))
 end
 
 function love.load()

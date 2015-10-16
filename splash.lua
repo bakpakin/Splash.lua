@@ -564,7 +564,7 @@ local function swept_bbox(shape, xto, yto)
 end
 
 -- Recursive function that should return where a shape moves to
-local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
+local function move_support(self, thing, shape, xto, yto, cs, f, c)
     if c <= 0 or
        (abs(xto - shape[1]) < EPSILON and abs(yto - shape[2]) < EPSILON) then
         return shape
@@ -573,7 +573,7 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
     local manifests = {}
     local shapes = self.shapes
     for otherThing in self:iterShape(make_aabb(xb, yb, wb, hb)) do
-        if otherThing ~= thing and not seen[otherThing] then
+        if otherThing ~= thing then
             local otherShape = shapes[otherThing]
             local r = f and f(thing, otherThing) or "slide"
             if r then
@@ -588,13 +588,12 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
     local m1 = manifests[1]
     -- TODO sort same time collisions
     if m1 then
-        seen[m1[1]] = true
         cs[#cs + 1] = m1
         local t, invt = m1[2], 1 - m1[2]
         local xc, yc = invt * shape[1] + t * xto, invt * shape[2] + t * yto
         shape[1], shape[2] = xc, yc
         local _xto, _yto = responses[m1[5]](xc, yc, xto, yto, m1[3], m1[4])
-        move_support(self, thing, shape, _xto, _yto, cs, f, c - 1, seen)
+        move_support(self, thing, shape, _xto, _yto, cs, f, c - 1)
     else -- no collisions
         shape[1], shape[2] = xto, yto
     end
@@ -607,7 +606,7 @@ function splash:move(thing, x, y, filter)
     assert(shape, "Thing is not in World.")
     shape = shape:clone()
     local cs = {}
-    move_support(self, thing, shape, x, y, cs, filter, 2, {})
+    move_support(self, thing, shape, x, y, cs, filter, 10)
     self:update(thing, shape[1], shape[2])
     return shape[1], shape[2], cs
 end
