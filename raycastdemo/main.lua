@@ -63,7 +63,7 @@ function love.draw()
     love.graphics.translate(-camx, -camy)
 
     -- Get visible portion of screen
-    local screen_aabb = splash.aabb(camx, camy, love.graphics.getWidth(), love.graphics.getHeight())
+    local screen_aabb = splash.aabb(camx, camy, love.graphics.getDimensions())
 
     -- Cast a ray and highlight the hit object
     love.graphics.setColor(255, 0, 0)

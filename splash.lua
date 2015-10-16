@@ -247,7 +247,8 @@ local function shape_sweep(a, b, xto, yto)
     if f then
         return f(a, b, xto, yto)
     else
-        local c, t, nx, ny = sweeps[b.type][a.type](a, b, xto, yto)
+        local dx, dy = xto - a[1], yto - a[2]
+        local c, t, nx, ny = sweeps[b.type][a.type](a, b, b[1] - dx, b[2] - dy)
         if c then
             t, nx, ny = 1 - t, -nx, -ny
         end
@@ -543,7 +544,9 @@ end
 -- normal y. Should return the new x goal, the new y goal
 local responses = {
     slide = function(x, y, xgoal, ygoal, nx, ny)
-
+        local dx, dy = xgoal - x, ygoal - y
+        local dot = nx * dx + ny * dy
+        return x + (dx - nx * dot), y + (dy - ny * dot)
     end,
     touch = function(x, y) return x, y end
 }
@@ -571,8 +574,9 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
     end
     local xb, yb, wb, hb = swept_bbox(shape, xto, yto)
     local manifests = {}
-    for otherThing in self:iterShape(splash.aabb(xb, yb, wb, hb)) do
-        if not seen[otherThing] then
+    local shapes = self.shapes
+    for otherThing in self:iterShape(make_aabb(xb, yb, wb, hb)) do
+        if otherThing ~= thing and not seen[otherThing] then
             seen[otherThing] = true
             local otherShape = shapes[otherThing]
             local r = f and f(thing, otherThing) or "slide"
@@ -615,6 +619,11 @@ end
 
 function splash:shape(thing)
     return shape_clone(self.shapes[thing])
+end
+
+function splash:pos(thing)
+    local shape = self.shapes[thing]
+    return shape[1], shape[2]
 end
 
 -- Debug functions
