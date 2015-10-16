@@ -142,14 +142,16 @@ local function aabb_sweep_impl(x1, y1, dx, dy, x, y, w, h)
     end
     local t1, t2 = max(tx1, ty1), min(tx2, ty2)
     local c = ((t1 + EPSILON < t2) and (t1 < 1) and (t2 > 0))
+    local corner_flag = false
     if c then
         if ty1 < tx1 then
             nx, ny = dx >= 0 and -1 or 1, 0
         else
+            corner_flag = ty1 == tx1
             nx, ny = 0, dy >= 0 and -1 or 1
         end
     end
-    return c, t1, nx, ny
+    return c, t1, nx, ny, corner_flag
 end
 
 local function seg_aabb_intersect(seg, aabb)
@@ -185,7 +187,7 @@ end
 
 -- Swept collisions
 -- Function should return boolean for intersection, time of intersection,
--- and normal like so: didCollide, t, nx, ny
+-- and normal like so: didCollide, t, nx, ny, didCornerCollide
 
 -- Minkowski difference is another aabb
 local function aabb_aabb_sweep(a, b, xto, yto)
@@ -208,7 +210,7 @@ local function circle_circle_sweep(a, b, xto, yto)
         local d = sqrt(nx * nx + ny * ny)
         nx, ny = nx / d, ny / d
     end
-    return c, t, nx, ny
+    return c, t, nx, ny, false
 end
 
 local function seg_seg_sweep(a, b, xto, yto)
@@ -554,8 +556,12 @@ local responses = {
     touch = function(x, y) return x, y end
 }
 
--- TODO better sorting for same time collisions.
-local function manifest_sorter(a, b) return a[2] < b[2] end
+local function manifest_sorter(a, b)
+    if a[2] == b[2] then
+        return (a[6] and 1 or 0) < (b[6] and 1 or 0)
+    end
+    return a[2] < b[2]
+end
 
 local function swept_bbox(shape, xto, yto)
     local xb, yb, wb, hb = bbox(shape)
@@ -578,12 +584,12 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c, seen)
     local shapes = self.shapes
     for otherThing in self:iterShape(make_aabb(xb, yb, wb, hb)) do
         if otherThing ~= thing and not seen[otherThing] then
-            local otherShape = shapes[otherThing]
+            local shape2 = shapes[otherThing]
             local r = f and f(thing, otherThing) or "slide"
             if r then
-                local c, t, nx, ny = shape_sweep(shape, otherShape, xto, yto)
+                local c, t, nx, ny, cn = shape_sweep(shape, shape2, xto, yto)
                 if c then
-                    manifests[#manifests + 1] = {otherThing, t, nx, ny, r}
+                    manifests[#manifests + 1] = {otherThing, t, nx, ny, r, cn}
                 end
             end
         end
