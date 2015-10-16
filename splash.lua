@@ -593,11 +593,10 @@ local function move_support(self, thing, shape, xto, yto, cs, f, c)
         local xc, yc = invt * shape[1] + t * xto, invt * shape[2] + t * yto
         shape[1], shape[2] = xc, yc
         local _xto, _yto = responses[m1[5]](xc, yc, xto, yto, m1[3], m1[4])
-        move_support(self, thing, shape, _xto, _yto, cs, f, c - 1)
+        return move_support(self, thing, shape, _xto, _yto, cs, f, c - 1)
     else -- no collisions
         shape[1], shape[2] = xto, yto
     end
-    return shape
 end
 
 function splash:move(thing, x, y, filter)
