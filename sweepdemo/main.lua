@@ -62,4 +62,5 @@ function love.draw()
     love.graphics.rectangle("fill", 0, 0, 200, 85)
     love.graphics.setColor(255, 255, 255, 255)
     love.graphics.print("WASD to move camera.", 5, 5)
+    love.graphics.print(collectgarbage("count"), 5, 35)
 end
