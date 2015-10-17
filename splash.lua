@@ -580,8 +580,10 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
             if r then
                 local c, t, nx2, ny2, cn = shape_sweep(shape, shape2, xto, yto)
                 if c and ((t < tmin) or ((t == tmin) and isCorner)) then
-                    tmin, other, nx, ny, isCorner = t, thing2, nx2, ny2, cn
-                    response = type(r) == "function" and r or responses[r]
+                    if not (seen[thing2] and t < EPSILON) then
+                        tmin, other, nx, ny, isCorner = t, thing2, nx2, ny2, cn
+                        response = type(r) == "function" and r or responses[r]
+                    end
                 end
             end
         end
