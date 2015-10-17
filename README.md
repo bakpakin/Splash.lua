@@ -227,7 +227,7 @@ splash.lua to your project source folder.
 
 ## Todo
 * Add tests (busted)
-* Swept collisions
+* More swept collisions - not all sweeps have been implemented.
 * Whatever features seem useful
 * Better, more fully featured demo(s)
 * Fix typos and other issues in this README
