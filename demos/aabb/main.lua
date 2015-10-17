@@ -28,5 +28,4 @@ end
 
 function love.draw()
     world:mapAll(draw_thing)
-    love.graphics.print(collectgarbage("count"), 5, 5)
 end
