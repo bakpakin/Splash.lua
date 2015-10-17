@@ -359,8 +359,6 @@ local function shape_update(s, x, y, a, b)
     return s
 end
 
-
-
 shape_mt = {
     __index = {
         unpack = unpack,
@@ -371,7 +369,7 @@ shape_mt = {
         bbox = bbox,
         clone = shape_clone
     },
-    __call = function(self) return unpack(self) end
+    __call = unpack
 }
 
 local function make_circle(x, y, r)
@@ -421,17 +419,8 @@ function splash:mapCell(f, cx, cy)
 end
 
 function splash:mapAll(f)
-    local seen = {}
-    for k, list in pairs(self) do
-        if type(k) == "number" then
-            for i = 1, #list do
-                local thing = list[i]
-                if not seen[thing] then
-                    seen[thing] = true
-                    f(thing)
-                end
-            end
-        end
+    for thing, shape in pairs(self.shapes) do
+        f(thing)
     end
 end
 
@@ -627,6 +616,11 @@ end
 
 function splash:shape(thing)
     return shape_clone(self.shapes[thing])
+end
+
+function splash:unpackShape(thing)
+    local shape = self.shapes[thing]
+    return shape.type, unpack(shape)
 end
 
 function splash:pos(thing)
