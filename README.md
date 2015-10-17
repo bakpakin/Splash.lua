@@ -1,34 +1,30 @@
-# Splash.lua - 2D Spacial Hashing in Lua
+# Splash.lua - 2D Spacial Hashing and Collision in Lua
 
 [![Build Status](https://travis-ci.org/bakpakin/Splash.lua.svg?branch=master)](https://travis-ci.org/bakpakin/Splash.lua)
 
 ![Demo GIF](https://github.com/bakpakin/Splash.lua/blob/master/img/demo.gif)
 
 ## About
-Splash.lua is a Lua module for storing objects in 2d space in way that is
-efficient for collision detection, rendering, and ray-casting. It is similar
-in many ways to bump.lua, but focuses more on storing objects and querying the
-world rather than performing collision resolution for you.
+Splash.lua is a Lua module for making collisions easier and managing objects in
+2D space. It enables ray casting, spatial querying, and collision resolution
+of circles, rectangles, and line segments. It uses similar collision responses
+to [bump.lua](https://github.com/kikito/bump.lua) to resolve collisions. In
+fact, Splash.lua is very similar to bump.lua, but has more general collision
+shapes. Splash.lua is still a work in progress.  
 
-## Demo
-There is a LÖVE demo in the `lovedemo` subdirectory that shows only some of
-Splash's capabilities. Run it from the main project folder like so:
+## Demos
+There are a few LÖVE demos in the `demos` subdirectory that shows only some of
+Splash's capabilities. Run a demo from the main project folder like so:
 ```bash
-love ./lovedemo
+love demos/pick_a_demo
 ```
-
-## What does this do that bump.lua doesn't?
-Shapes are not just limited to rectangles. The interface is slightly more
-flexible, and you don't have to create a large table when querying a large part
-of the world. Currently, AABBs, circles and line segments are supported.
-Full polygonal support is a maybe. Swept collisions and responses might also
-be added in the future. Clearly, this is still a Work In Progress.
 
 ## API
 
 ### Creating a new Splash World
 Splash works with the concept of the World, a manager that keeps track of all
 things in it.
+
 ```lua
 local splash = require "splash"
 local world = splash.new(cellSize) -- or splash(cellSize)
@@ -52,9 +48,9 @@ local circle = splash.circle(x, y, r)
 Creates a circle at `(x, y)` with a radius of `r`. The radius must be positive.
 
 ```lua
-local seg = splash.seg(x1, y1, x2, y2)
+local seg = splash.seg(x1, y1, dx, dy)
 ```
-Creates a line segment from `(x1, y1)` to `(x2, y2)`.
+Creates a line segment from `(x1, y1)` to `(x1 + dx, y1 + dy)`.
 
 Shapes also have a few common methods.
 
@@ -63,6 +59,8 @@ local x, y, ... = shape:unpack() -- Unpacks all of the values used to construct 
 local x, y, ... - shape() -- Shortcut for unpacking the Shape
 local newShape = shape:clone() -- Creates a copy of the Shape
 local didIntersect = shape:intersect(otherShape) -- Checks if two Shapes intersect. For segments, returns the time of intersection between 0 and 1
+local didCollide, t, nx, ny, cornerCollide = shape:sweep(other, xto, yto) -- Checks if a Shape would intersect another Shape when moving to point
+-- (xto, yto). Returns information about the collision including when it happened, and the collision normal.
 local x, y = shape:pos() -- Unpacks only the first two values of the Shape, which are x and y.
 local shape = shape:update(newx, newy, [...]) -- Updates the values of the Shape without creating a new Shape. Returns the Shape for convenience
 ```
@@ -102,15 +100,69 @@ regardless of what kind of shape it is, and is equivalent to:
 thing, shape = world:update(thing, 100, 100)
 ```
 
+```lua
+local shape = world:shape(thing)
+```
+Gets the Shape associated with a Thing.
+
+```lua
+local type, x, y, a, b = world:unpackShape(thing)
+```
+Gets the unpack data of a Shape associated with Thing. Equivalent to
+`world:shape(thing):unpack()`, but doesn't create a new Shape.
+
+```lua
+local x, y = world:pos(thing)
+```
+Gets the position of a Thing in the World. Equivalent to
+`world:shape(thing):pos()`.
+
+### Collision Resolution
+
+Splash.lua can collide Things with other Things in a World in an efficient and
+general manner. Splash.lua works on the basis of collision responses that are
+used to resolve collisions. Be default, three are built in: `'slide'`,
+`'touch'`, and `'cross'`. These should work the same as they do in
+[bump.lua](https://github.com/kikito/bump.lua).
+
+```lua
+xto, yto = world:move(thing, xgoal, ygoal, [filter, callback])
+```
+Moves a Thing in the world to (xto, yto), colliding with the collision method
+based on filter. The filter is a function of two arguments, thing1 and thing2,
+and returns a collision type to be used to resolve the collision. If a logical
+false is returned, then no collision occurs between thing1 and thing2. If no
+filter is provided, then the default response of 'slide' is used. If callback is
+provided, then it is called on every collision with arguments:
+`callback(thing, other, x, y, xgoal, ygoal, normalx, normaly)`.
+
+```lua
+xto, yto, collisions = world:moveExt(thing, xgoal, ygoal, [filter])
+```
+Similar to `world:move`, but returns a sequence of collisions instead of using a
+callback. Every element of the `collision` sequence is a table containing the
+following information about collisions.
+
+* self: the Thing that was moved.
+* other: the Thing that self collided with
+* x, y: the position of self when the collision occurs.
+* xgoal, ygoal: the position self is heading towards after the collision.
+* nx, ny: the normal vector of the collision.  
+
+There are also two functions `world:check` and `world:checkExt` that do exactly
+the same things as the move functions, but don't update the position of the
+Thing in the world. They are useful for checking if collisions *would* have
+occurred had a Thing been moved to a location.
+
 ### Checking the World
 
-This is currently the core functionality of Splash. Splash offers three
-different ways of checking the World. Mapping, Querying, and Iterating.
-Mapping applies a function over every object found in the searched area.
-Querying returns a sequence of all objects in the searched area. Iterating
-returns an iterator over all objects in the searched area. All `query` functions
-have a corresponding `map` and `iter` function of a similar name. The `map` and
-`iter` functions, however, give extra information to the user in some cases.
+Splash offers three different ways of checking the World. Mapping, Querying,
+and Iterating. Mapping applies a function over every object found in the
+searched area. Querying returns a sequence of all objects in the searched area.
+Iterating returns an iterator over all objects in the searched area. All `query`
+functions have a corresponding `map` and `iter` function of a similar name.
+The `map` and `iter` functions, however, give extra information to the user in
+some cases.
 
 #### Mapping
 ```lua
@@ -142,12 +194,6 @@ of intersection (parameter from 0 to 1).
 ```lua
 local thing, endx, endy, t1 = world:castRay(x1, y1, x2, y2)
 ```
-
-### Utility Functions
-```lua
-local shape = world:shape(thing)
-```
-Returns the Shape associated with `thing`.
 
 ### Debug Functions
 These functions should be used mainly for debugging and inspecting what Splash
@@ -181,7 +227,7 @@ splash.lua to your project source folder.
 
 ## Todo
 * Add tests (busted)
-* Swept collisions
+* More swept collisions - not all sweeps have been implemented.
 * Whatever features seem useful
 * Better, more fully featured demo(s)
 * Fix typos and other issues in this README
