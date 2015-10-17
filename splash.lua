@@ -35,7 +35,7 @@ local yield = coroutine.yield
 local sort = table.sort
 
 local SPACE_KEY_CONST = 2^25
-local EPSILON = 2^(-15)
+local EPSILON = 2^(-25)
 
 local splash = {}
 splash.__index = splash
@@ -204,9 +204,10 @@ local function circle_circle_sweep(a, b, xto, yto)
     local x2, y2, r2 = b:unpack()
     -- Minkowski Difference
     local x, y, r = x2 - x1, y2 - y1, r1 + r2
-    local c, t, nx, ny = circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
+    local nx, ny
+    local c, t = circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
     if c then
-        nx, ny = x1 + x * t, y1 + y * t
+        nx, ny = x1 + x * t - x2, y1 + y * t - y2
         local d = sqrt(nx * nx + ny * ny)
         nx, ny = nx / d, ny / d
     end
