@@ -102,7 +102,8 @@ local function circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
     if dt2 < EPSILON then return false end
     local dt = sqrt(dt2 / pdotp)
     local tbase = (dx * cx + dy * cy) / pdotp
-    return tbase - dt <= 1 and tbase + dt >= 0, tbase - dt, tbase + dt
+    return tbase - dt < 1 - EPSILON and tbase + dt > EPSILON,
+        tbase - dt, tbase + dt
 end
 
 local function seg_circle_intersect(seg, circle)
@@ -573,7 +574,7 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
     local shapes = self.shapes
     local tmin, other, nx, ny, isCorner, response = 1, nil, 0, 0, false, nil
     for thing2 in self:iterShape(make_aabb(xb, yb, wb, hb)) do
-        if thing2 ~= thing and not seen[thing2] then
+        if thing2 ~= thing then
             local shape2 = shapes[thing2]
             local r = f and f(thing, thing2) or "slide"
             if r then
@@ -586,10 +587,11 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
         end
     end
     if other then
-        seen[other] = true
         local it = 1 - tmin
         local xc, yc = it * shape[1] + tmin * xto, it * shape[2] + tmin * yto
         shape[1], shape[2] = xc, yc
+        if seen[other] and tmin < EPSILON then return end
+        seen[other] = true
         local _xto, _yto = response(xc, yc, xto, yto, nx, ny)
         if cb then cb(thing, other, xc, yc, xto, yto, nx, ny) end
         return move_support(self, thing, shape, _xto, _yto, f, c - 1, seen, cb)
