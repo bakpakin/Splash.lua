@@ -214,19 +214,19 @@ local function circle_circle_sweep(a, b, xto, yto)
 end
 
 local function seg_seg_sweep(a, b, xto, yto)
-
+    error "Seg vs. seg sweep is not yet supported. Sorry."
 end
 
 local function seg_circle_sweep(seg, circle, xto, yto)
-
+    error "Seg vs. circle sweep is not yet supported. Sorry."
 end
 
 local function seg_aabb_sweep(seg, aabb, xto, yto)
-
+    error "Seg vs. aabb sweep is not yet supported. Sorry."
 end
 
 local function aabb_circle_sweep(aabb, circle, xto, yto)
-
+    error "Aabb vs. circle sweep is not yet supported. Sorry."
 end
 
 local sweeps = {
