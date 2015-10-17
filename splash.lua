@@ -602,19 +602,47 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
     end
 end
 
-function splash:check(thing, x, y, filter)
+function splash:check(thing, x, y, filter, cb)
     local shapes = self.shapes
     local shape = shapes[thing]
     assert(shape, "Thing is not in World.")
     shape = shape:clone()
-    move_support(self, thing, shape, x, y, filter, 10, {})
+    move_support(self, thing, shape, x, y, filter, 10, {}, cb)
     return shape[1], shape[2]
 end
 
-function splash:move(thing, x, y, filter)
-    local xto, yto = self:check(thing, x, y, filter)
+local function make_manifest(self, other, x, y, xgoal, ygoal, nx, ny)
+    return {
+        self = self,
+        other = other,
+        x = x,
+        y = y,
+        xgoal = xgoal,
+        ygoal = ygoal,
+        nx = nx,
+        ny = ny
+    }
+end
+
+function splash:checkExt(thing, x, y, filter)
+    local collisions = {}
+    local cb = function(...)
+        collisions[#collisions + 1] = make_manifest(...)
+    end
+    local xto, yto = self:check(thing, x, y, filter, cb)
+    return xto, yto, collisions
+end
+
+function splash:move(thing, x, y, filter, cb)
+    local xto, yto = self:check(thing, x, y, filter, cb)
     self:update(thing, xto, yto)
     return xto, yto
+end
+
+function splash:moveExt(thing, x, y, filter)
+    local xto, yto, collisions = self:checkExt(thing, x, y, filter)
+    self:update(thing, xto, yto)
+    return xto, yto, collisions
 end
 
 -- Utility functions
@@ -661,16 +689,18 @@ end
 
 -- Ray casting
 
-local function ray_trace_helper(cx, cy, self, seg, ref)
+local function ray_trace_helper(cx, cy, self, seg, ref, filter)
     local list = self[SPACE_KEY_CONST * cx + cy]
     local shapes = self.shapes
     if not list then return false end
     for i = 1, #list do
         local thing = list[i]
         -- Segment intersections should always return a time of intersection
-        local c, t1 = shape_intersect(seg, shapes[thing])
-        if c and t1 <= ref[2] then
-            ref[1], ref[2] = thing, t1
+        if not filter or filter(thing) then
+            local c, t1 = shape_intersect(seg, shapes[thing])
+            if c and t1 <= ref[2] then
+                ref[1], ref[2] = thing, t1
+            end
         end
     end
     local tcx, tcy = to_cell(self.cellSize,
@@ -679,10 +709,10 @@ local function ray_trace_helper(cx, cy, self, seg, ref)
     if cx == tcx and cy == tcy then return true end
 end
 
-function splash:castRay(x1, y1, x2, y2)
+function splash:castRay(x1, y1, x2, y2, filter)
     local ref = {false, 1}
     local seg = make_seg(x1, y1, x2 - x1, y2 - y1)
-    grid_segment(seg, self.cellSize, ray_trace_helper, self, seg, ref)
+    grid_segment(seg, self.cellSize, ray_trace_helper, self, seg, ref, filter)
     local t = max(0, ref[2])
     return ref[1], (1 - t) * x1 + t * x2, (1 - t) * y1 + t * y2, t
 end

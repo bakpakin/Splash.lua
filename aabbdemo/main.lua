@@ -5,9 +5,9 @@ local player
 
 function love.load()
     love.window.setMode(900, 600, {resizable = true})
-    player = world:add({}, splash.circle(100, 100, 20, 20))
+    player = world:add({}, splash.aabb(100, 100, 20, 20))
     for i = 1, 20 do
-        world:add({}, splash.circle(math.random(600), math.random(600), 20, 20))
+        world:add({}, splash.aabb(math.random(600), math.random(600), 20, 20))
     end
 end
 
@@ -23,7 +23,7 @@ end
 
 local function draw_thing(thing)
     local t, x, y, a, b = world:unpackShape(thing)
-    love.graphics.circle("fill", x, y, a, b)
+    love.graphics.rectangle("line", x, y, a, b)
 end
 
 function love.draw()
