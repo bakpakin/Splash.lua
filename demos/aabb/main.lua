@@ -1,4 +1,5 @@
 local splash = require "splash"
+local draw_world = require "demos.draw_world"
 
 local world = splash.new()
 local player
@@ -30,20 +31,11 @@ function love.update(dt)
     world:move(player, x + dx * dt, y + dy * dt)
 end
 
-local function draw_thing(thing)
-    if thing == player then
-        love.graphics.setColor(255, 0, 0, 255)
-    else
-        love.graphics.setColor(255, 255, 255, 255)
-    end
-    local t, x, y, a, b = world:unpackShape(thing)
-    love.graphics.rectangle("line", x, y, a, b)
-end
-
 function love.draw()
     love.graphics.translate(-camx, -camy)
-    world:mapAll(draw_thing)
-
+    draw_world(world)
+    love.graphics.setColor(255, 0, 0)
+    draw_world.shape(world:shape(player))
     -- Simple HUD
     love.graphics.origin()
     love.graphics.setColor(0, 0, 0, 180)

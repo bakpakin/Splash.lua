@@ -103,7 +103,7 @@ local function circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
     local dt = sqrt(dt2 / pdotp)
     local tbase = (dx * cx + dy * cy) / pdotp
     return tbase - dt < 1 - EPSILON and tbase + dt > EPSILON,
-        tbase - dt, tbase + dt
+        tbase - dt, tbase + dt, tbase, dt
 end
 
 local function seg_circle_intersect(seg, circle)
@@ -199,28 +199,53 @@ local function aabb_aabb_sweep(a, b, xto, yto)
     return aabb_sweep_impl(0, 0, xto - x1, yto - y1, x, y, w, h)
 end
 
+local function circle_sweep_normal(x1, y1, dx, dy, xc, yc, r)
+    local c, t, _, tbase = circle_sweep_impl(x1, y1, dx, dy, xc, yc, r)
+    if c and tbase > EPSILON then
+        local nx, ny = x1 + dx * t - xc, y1 * dy * t - yc
+        local d = sqrt(nx * nx + ny * ny)
+        return c, t, nx / d, ny / d
+    end
+end
+
 -- Minkowksi Difference is another circle
 local function circle_circle_sweep(a, b, xto, yto)
     local x1, y1, r1 = a:unpack()
     local x2, y2, r2 = b:unpack()
     -- Minkowski Difference
     local x, y, r = x2 - x1, y2 - y1, r1 + r2
-    local nx, ny
-    local c, t = circle_sweep_impl(0, 0, xto - x1, yto - y1, x, y, r)
-    if c then
-        nx, ny = x1 + x * t - x2, y1 + y * t - y2
-        local d = sqrt(nx * nx + ny * ny)
-        nx, ny = nx / d, ny / d
-    end
-    return c, t, nx, ny, false
+    return circle_sweep_normal(0, 0, xto - x1, yto - y1, x, y, r)
 end
 
 local function seg_seg_sweep(a, b, xto, yto)
     error "Seg vs. seg sweep is not yet supported. Sorry."
 end
 
-local function seg_circle_sweep(seg, circle, xto, yto)
-    error "Seg vs. circle sweep is not yet supported. Sorry."
+local function circle_seg_sweep(circle, seg, xto, yto)
+    local x1, y1, dx1, dy1 = seg:unpack()
+    local x2, y2, r = circle:unpack()
+    local dx2, dy2 = xto - x2, yto - y2
+    local cross = dx1 * dy2 - dx2 * dy1
+    local dot1 = dx1 * dx1 + dy1 * dy1
+    local dot2 = dx2 * dx2 + dy2 * dy2
+    if cross == 0 then -- collinear
+
+    else
+        local DT2 = dot1 * dot2 / (cross^2) * r * r
+        local dt = sqrt(DT2 / dot2)
+        local dx, dy = x1 - x2, y1 - y2
+        local t = (dx1 * dy - dy1 * dx) / cross
+        if t >= -dt and t <= 1 + dt then
+            local s = (dx2 * dy - dy2 * dx) / cross
+            local DS2 = DT2 - r * r
+            local ds = sqrt(DS2 / dot1)
+            if s >= ds and s <= 1 - ds then
+                return true, t - dt, 0, 0
+            else -- sweep against end points
+                --local ca, ta = circle_sweep_impl()
+            end
+        end
+    end
 end
 
 local function seg_aabb_sweep(seg, aabb, xto, yto)
@@ -233,7 +258,8 @@ end
 
 local sweeps = {
     circle = {
-        circle = circle_circle_sweep,
+        seg = circle_seg_sweep,
+        circle = circle_circle_sweep
     },
     aabb = {
         aabb = aabb_aabb_sweep,
@@ -241,8 +267,7 @@ local sweeps = {
     },
     seg = {
         seg = seg_seg_sweep,
-        aabb = seg_aabb_sweep,
-        circle = seg_circle_sweep
+        aabb = seg_aabb_sweep
     }
 }
 
@@ -252,11 +277,12 @@ local function shape_sweep(a, b, xto, yto)
         return f(a, b, xto, yto)
     else
         local dx, dy = xto - a[1], yto - a[2]
-        local c, t, nx, ny = sweeps[b.type][a.type](a, b, b[1] - dx, b[2] - dy)
+        local c, t, nx, ny, cn = sweeps[b.type][a.type](
+            b, a, b[1] - dx, b[2] - dy)
         if c then
-            t, nx, ny = 1 - t, -nx, -ny
+            nx, ny = -nx, -ny
         end
-        return c, t, nx, ny
+        return c, t, nx, ny, cn
     end
 end
 
@@ -371,7 +397,11 @@ shape_mt = {
         bbox = bbox,
         clone = shape_clone
     },
-    __call = unpack
+    __call = unpack,
+    __tostring = function(self)
+        return ("<shape:%s,%s>"):format(self.type,
+            table.concat(self, ","))
+    end
 }
 
 local function make_circle(x, y, r)
@@ -589,11 +619,12 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
         end
     end
     if other then
+        tmin = tmin - EPSILON
+        if seen[other] and tmin <= 0 then return end
+        seen[other] = true
         local it = 1 - tmin
         local xc, yc = it * shape[1] + tmin * xto, it * shape[2] + tmin * yto
         shape[1], shape[2] = xc, yc
-        if seen[other] and tmin < EPSILON then return end
-        seen[other] = true
         local _xto, _yto = response(xc, yc, xto, yto, nx, ny)
         if cb then cb(thing, other, xc, yc, xto, yto, nx, ny) end
         return move_support(self, thing, shape, _xto, _yto, f, c - 1, seen, cb)

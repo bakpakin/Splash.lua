@@ -1,4 +1,5 @@
 local splash = require "splash"
+local draw_world = require "demos.draw_world"
 
 local world = splash(128)
 local camx, camy = 0, 0
@@ -45,38 +46,18 @@ function love.update(dt)
     end
 end
 
-local shape_draws = {
-    circle = function(s, m) love.graphics.circle(m, s:unpack()) end,
-    aabb = function(s, m) love.graphics.rectangle(m, s:unpack()) end,
-    seg = function(s, m)
-        local x, y, dx, dy = s:unpack()
-        love.graphics.line(x, y, x + dx, y + dy) end
-}
-
-local function draw_shape(shape, mode)
-    mode = mode or "line"
-    shape_draws[shape.type](shape, mode)
-end
-
 function love.draw()
     -- Apply camera translation
     love.graphics.translate(-camx, -camy)
-
-    -- Get visible portion of screen
-    local screen_aabb = splash.aabb(camx, camy, love.graphics.getDimensions())
 
     -- Cast a ray and highlight the hit object
     love.graphics.setColor(255, 0, 0)
     local item, ex, ey = world:castRay(mx, my, mx + math.cos(dir) * 2000, my + math.sin(dir) * 2000)
     love.graphics.line(mx, my, ex, ey)
-    if item then draw_shape(world:shape(item), "fill") end
+    if item then draw_world.shape(world:shape(item), "fill") end
     love.graphics.setColor(80, 80, 80, 255)
 
-    -- Draw Visible Shapes
-    love.graphics.setColor(255, 255, 255)
-    for thing in world:iterShape(screen_aabb) do
-        draw_shape(world:shape(thing))
-    end
+    draw_world(world)
 
     -- Simple HUD
     love.graphics.origin()
