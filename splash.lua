@@ -228,9 +228,7 @@ local function circle_seg_sweep(circle, seg, xto, yto)
     local cross = dx1 * dy2 - dx2 * dy1
     local dot1 = dx1 * dx1 + dy1 * dy1
     local dot2 = dx2 * dx2 + dy2 * dy2
-    if cross == 0 then -- collinear
-
-    else
+    if cross ~= 0 then
         local DT2 = dot1 * dot2 / (cross^2) * r * r
         local dt = sqrt(DT2 / dot2)
         local dx, dy = x1 - x2, y1 - y2
@@ -241,11 +239,12 @@ local function circle_seg_sweep(circle, seg, xto, yto)
             local ds = sqrt(DS2 / dot1)
             if s >= ds and s <= 1 - ds then
                 return true, t - dt, 0, 0
-            else -- sweep against end points
-                --local ca, ta = circle_sweep_impl()
             end
+        else
+            return false
         end
     end
+    -- sweep against end points
 end
 
 local function seg_aabb_sweep(seg, aabb, xto, yto)
@@ -609,10 +608,11 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
             local r = f and f(thing, thing2) or "slide"
             if r then
                 local c, t, nx2, ny2, cn = shape_sweep(shape, shape2, xto, yto)
-                if c and ((t < tmin) or ((t == tmin) and isCorner)) then
+                if c and ((t + EPSILON < tmin) or
+                    (abs(t - tmin) < EPSILON and isCorner)) then
                     if not (seen[thing2] and t < EPSILON) then
                         tmin, other, nx, ny, isCorner = t, thing2, nx2, ny2, cn
-                        response = type(r) == "function" and r or responses[r]
+                        response = responses[r]
                     end
                 end
             end
