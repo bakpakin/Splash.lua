@@ -3,7 +3,7 @@ local draw_world = require "demos.draw_world"
 
 local world = splash.new()
 local destx, desty = 400, 200
-local target = splash.seg(100, 200, 200, 300)
+local target = splash.seg(100, 200, 50, 300)
 local sweeper = splash.circle(0, 0, 50, 40)
 
 function love.update(dt)
@@ -16,10 +16,11 @@ end
 function love.draw()
     local mx, my = love.mouse.getPosition()
     sweeper:update(mx, my)
-    local c, t = sweeper:sweep(target, destx, desty)
+    local c, t, nx, ny = sweeper:sweep(target, destx, desty)
     if c then
         local xto, yto = mx + (destx - mx) * t, my + (desty - my) * t
         sweeper:update(xto, yto)
+        love.graphics.line(xto, yto, xto + 100 * nx, yto + 100 * ny)
     else
         sweeper:update(destx, desty)
     end

@@ -228,28 +228,38 @@ local function circle_seg_sweep(circle, seg, xto, yto)
     local cross = dx1 * dy2 - dx2 * dy1
     local dot1 = dx1 * dx1 + dy1 * dy1
     local dot2 = dx2 * dx2 + dy2 * dy2
+    local dx, dy = x1 - x2, y1 - y2
     if cross ~= 0 then
         local DT2 = dot1 * dot2 / (cross^2) * r * r
         local dt = sqrt(DT2 / dot2)
-        local dx, dy = x1 - x2, y1 - y2
         local t = (dx1 * dy - dy1 * dx) / cross
-        if t >= -dt and t <= 1 + dt then
+        if t > -dt + EPSILON and t <= 1 + dt - EPSILON then
             local s = (dx2 * dy - dy2 * dx) / cross
             local DS2 = DT2 - r * r
             local ds = sqrt(DS2 / dot1)
-            if s >= ds and s <= 1 - ds then
-                return true, t - dt, 0, 0
+            if s >= ds + EPSILON and s <= 1 - ds - EPSILON then
+                local nx, ny = dy1, -dx1
+                local seglen = sqrt(dot1)
+                nx, ny = nx / seglen, ny / seglen
+                if cross < 0 then nx, ny = -nx, -ny end
+                return true, t - dt, nx, ny
             end
         else
             return false
         end
     end
-    local ca, ta, nax, nay = circle_sweep_normal(x1, y1,
-        -dx2, -dy2, x2, y2, r)
-    if ca then return ca, ta, nax, nay end
-    ca, ta, nax, nay = circle_sweep_normal(x1 + dx1, y1 + dy1,
-        -dx2, -dy2, x2, y2, r)
-    if ca then return ca, ta, nax, nay end
+    local ca, ta = circle_sweep_impl(x1, y1, -dx2, -dy2, x2, y2, r)
+    if ca then
+        local nx, ny = dx2 * ta - dx, dy2 * ta - dy
+        local d = sqrt(nx * nx + ny * ny)
+        return ca, ta, nx / d, ny / d
+    end
+    ca, ta = circle_sweep_impl(x1 + dx1, y1 + dy1, -dx2, -dy2, x2, y2, r)
+    if ca then
+        local nx, ny = dx2 * ta - dx - dx1, dy2 * ta - dy - dy1
+        local d = sqrt(nx * nx + ny * ny)
+        return ca, ta, nx / d, ny / d
+    end
 end
 
 local function seg_aabb_sweep(seg, aabb, xto, yto)

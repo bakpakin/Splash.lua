@@ -8,7 +8,12 @@ local camx, camy = 0, 0
 function love.load()
     love.window.setMode(900, 600, {resizable = true})
     player = world:add({}, splash.circle(100, 100, 20))
-    for i = 1, 200 do
+    for i = 1, 100 do
+        world:add({}, splash.seg(
+            math.random(2000) - 1000,
+            math.random(2000) - 1000,
+            math.random(-50, 50),
+            math.random(-50, 50)))
         world:add({}, splash.circle(
             math.random(2000) - 1000,
             math.random(2000) - 1000,
