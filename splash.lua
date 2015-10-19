@@ -244,7 +244,12 @@ local function circle_seg_sweep(circle, seg, xto, yto)
             return false
         end
     end
-    -- sweep against end points
+    local ca, ta, nax, nay = circle_sweep_normal(x1, y1,
+        -dx2, -dy2, x2, y2, r)
+    if ca then return ca, ta, nax, nay end
+    ca, ta, nax, nay = circle_sweep_normal(x1 + dx1, y1 + dy1,
+        -dx2, -dy2, x2, y2, r)
+    if ca then return ca, ta, nax, nay end
 end
 
 local function seg_aabb_sweep(seg, aabb, xto, yto)
