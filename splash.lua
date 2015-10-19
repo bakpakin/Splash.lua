@@ -229,20 +229,20 @@ local function circle_seg_sweep(circle, seg, xto, yto)
     local dot1 = dx1 * dx1 + dy1 * dy1
     local dot2 = dx2 * dx2 + dy2 * dy2
     local dx, dy = x1 - x2, y1 - y2
-    if cross ~= 0 then
+    if abs(cross) > EPSILON then
         local DT2 = dot1 * dot2 / (cross^2) * r * r
         local dt = sqrt(DT2 / dot2)
         local t = (dx1 * dy - dy1 * dx) / cross
-        if t > -dt + EPSILON and t <= 1 + dt - EPSILON then
-            local s = (dx2 * dy - dy2 * dx) / cross
-            local DS2 = DT2 - r * r
-            local ds = sqrt(DS2 / dot1)
-            if s >= ds + EPSILON and s <= 1 - ds - EPSILON then
+        if t > -dt + EPSILON and t < 1 + dt - EPSILON then
+            t = t - dt
+            local xc, yc = x2 + (xto - x2) * t, y2 + (yto - y2) * t
+            if (xc-x1) * dx1 + (yc-y1) * dy1 > EPSILON and
+                (xc-x1-dx1)*dx1 + (yc-y1-dy1)*dy1 < -EPSILON then
                 local nx, ny = dy1, -dx1
                 local seglen = sqrt(dot1)
                 nx, ny = nx / seglen, ny / seglen
                 if cross < 0 then nx, ny = -nx, -ny end
-                return true, t - dt, nx, ny
+                return true, t, nx, ny
             end
         else
             return false
