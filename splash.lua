@@ -52,6 +52,10 @@ local function to_cell_box(cs, x, y, w, h)
     return x1, y1, x2, y2
 end
 
+local function lerp(x1, y1, x2, y2, t)
+    return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
+end
+
 -- Intersection Testing
 
 -- Shapes are implemented as arrays, which is slightly harder ro read, but
@@ -233,7 +237,7 @@ local function circle_seg_sweep(circle, seg, xto, yto)
         local DT2 = dot1 * dot2 / (cross^2) * r * r
         local dt = sqrt(DT2 / dot2)
         local t = (dx1 * dy - dy1 * dx) / cross
-        if t > -dt + EPSILON and t < 1 + dt - EPSILON then
+        if t > EPSILON and t < 1 + dt - EPSILON then
             t = t - dt
             local xc, yc = x2 + (xto - x2) * t, y2 + (yto - y2) * t
             if (xc-x1) * dx1 + (yc-y1) * dy1 > EPSILON and
@@ -623,8 +627,8 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
             local r = f and f(thing, thing2) or "slide"
             if r then
                 local c, t, nx2, ny2, cn = shape_sweep(shape, shape2, xto, yto)
-                if c and ((t + EPSILON < tmin) or
-                    (abs(t - tmin) < EPSILON and isCorner)) then
+                if c and (t < tmin or
+                    (t == tmin and isCorner)) then
                     if not (seen[thing2] and t < EPSILON) then
                         tmin, other, nx, ny, isCorner = t, thing2, nx2, ny2, cn
                         response = responses[r]
@@ -634,11 +638,9 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
         end
     end
     if other then
-        tmin = tmin - EPSILON
-        if seen[other] and tmin <= 0 then return end
+        if seen[other] then return end
         seen[other] = true
-        local it = 1 - tmin
-        local xc, yc = it * shape[1] + tmin * xto, it * shape[2] + tmin * yto
+        local xc, yc = lerp(shape[1], shape[2], xto, yto, tmin)
         shape[1], shape[2] = xc, yc
         local _xto, _yto = response(xc, yc, xto, yto, nx, ny)
         if cb then cb(thing, other, xc, yc, xto, yto, nx, ny) end
