@@ -624,7 +624,7 @@ local function move_support(self, thing, shape, xto, yto, f, c, seen, cb)
     for thing2 in self:iterShape(make_aabb(xb, yb, wb, hb)) do
         if thing2 ~= thing then
             local shape2 = shapes[thing2]
-            local r = f and f(thing, thing2) or "slide"
+            local r = (not f) and "slide" or f(thing, thing2)
             if r then
                 local c, t, nx2, ny2, cn = shape_sweep(shape, shape2, xto, yto)
                 if c and (t < tmin or
