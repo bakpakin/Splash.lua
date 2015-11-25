@@ -549,7 +549,7 @@ function splash:remove(thing)
     assert(shape, "Thing is not in world.")
     self.count = self.count - 1
     self.shapes[thing] = nil
-    self.shape2[thing] = nil
+    self.shapes2[thing] = nil
     shape_grid(shape, self.cellSize, remove_thing_from_cell, self, thing)
     return thing, shape
 end
