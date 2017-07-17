@@ -459,7 +459,7 @@ function splash:mapShape(f, shape)
 end
 
 function splash:mapPoint(f, x, y)
-    return splash:mapShape(f, make_circle(x, y, 0))
+    return self:mapShape(f, make_circle(x, y, 0))
 end
 
 function splash:mapCell(f, cx, cy)

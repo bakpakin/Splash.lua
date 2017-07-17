@@ -35,4 +35,10 @@ describe("Splash", function()
         assert.are.same(_G, GLOBALS)
     end)
 
+    it("can query point", function()
+        local world = splash.new()
+        world:add({},splash.aabb(10,10,100,100))
+        world:queryPoint(0,0)
+    end)
+
 end)
